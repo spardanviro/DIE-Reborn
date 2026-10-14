@@ -39,15 +39,18 @@
 
 四、客户端
 --------
-玩家的 ip.cfg 要指向 {PUBLIC_HOST}:
-- 朋友: 用最新的「DIE_朋友客户端包」, 里面已经填好了。
-- 你自己: 双击游戏目录里的「设置服务器地址.cmd」, 输入 {PUBLIC_HOST}。
-  (想回到本机开发服, 再运行一次输入 127.0.0.1)
+玩家用登陆器连进来: https://github.com/spardanviro/DIElauncher
+让玩家在 DIE-Launcher.exe 旁边放一个 launcher.json, 内容是:
+
+  { "serverHost": "{PUBLIC_HOST}" }
+
+然后在登陆器里点「安装补丁」, 再点「开始游戏」。登陆器页面上有玩家一侧的完整步骤。
+在别的电脑上打开 http://{PUBLIC_HOST}:8555/status 能返回内容, 就说明玩家连得进来。
 
 五、数据和日志
 ------------
 DIE_Server\data\die_reborn.db     所有账号 (进度、背包、货币)。备份它 = 备份全部账号。
-DIE_Server\logs\                  服务器日志, 按天一个文件。出问题把当天的发给我。
+DIE_Server\logs\                  服务器日志, 按天一个文件。出问题先看当天的那个。
 
 六、以后更新服务器
 ----------------
@@ -58,7 +61,7 @@ DIE_Server\logs\                  服务器日志, 按天一个文件。出问�
 
 六点五、把本机账号进度搬到服务器上
 ------------------------------
-(只有用仓库根「打包服务器(带本机账号).cmd」打的包 (即 -ImportLocalAccounts), DIE_Server\import\ 里才有 die_reborn.db;
+(只有打包时加了 -ImportLocalAccounts 参数, DIE_Server\import\ 里才有 die_reborn.db;
  普通的「打包服务器.cmd」不带)
 1. 关服。
 2. 双击「导入本机账号.cmd」: 先预演列出要导入的账号 -> 输入 Y 确认 -> 自动备份 data\die_reborn.db 后导入。
@@ -69,7 +72,7 @@ DIE_Server\logs\                  服务器日志, 按天一个文件。出问�
 ------
 - 公网 IP: 现在的 {PUBLIC_HOST} 是实例自带的公网 IP。按量付费实例如果"节省停机",
   公网 IP 可能被回收, 再开机就变了。建议在实例页面点「转换为弹性公网 IP」固定下来;
-  真变了就改 public-host.txt 并让大家改 ip.cfg。
+  真变了就改 public-host.txt 并让大家改 launcher.json 里的地址。
 - 流量: 带宽按使用流量计费, 这游戏一局的流量很小, 几个人玩费用很低。
 - 服务器要能连上 Steam (核验玩家身份用)。开服几秒后没出现"已以匿名游戏服务器登录 Steam",
-  把日志发给我。
+  检查服务器的出站网络, 再看 logs\ 里当天的日志。

@@ -1,0 +1,251 @@
+# DIE Reborn — 服务端
+
+[English](README.md) | **简体中文**
+
+为 *Dead Island: Epidemic*（Stunlock / Deep Silver 2014 年的作品，官方服务器已于 2015 年关闭）从零重写的服务端，让 Steam 上的原版客户端重新可玩。
+
+> **非官方爱好者项目**，与 Deep Silver、Stunlock Studios 及任何权利方无关，所有商标归各自所有者。**本仓库不包含任何游戏文件**，需要你自己拥有游戏。
+
+| 你想…… | 去这里 |
+|---|---|
+| 在服务器上**玩** | 登陆器：**<https://github.com/spardanviro/DIElauncher>** |
+| 自己**开服** | 看本页 |
+
+目前已能完整游玩：Steam 登录、大厅（背包、制造、商店、成长）、匹配，以及 Scout、十字路口、拾荒三种模式。
+
+---
+
+## 开服教程
+
+1. [需要准备什么](#1-需要准备什么)
+2. [准备游戏代码和数据](#2-准备游戏代码和数据)
+3. [在自己电脑上编译和运行](#3-在自己电脑上编译和运行)
+4. [让客户端连上本机服务器](#4-让客户端连上本机服务器)
+5. [部署到公网服务器](#5-部署到公网服务器)
+6. [让玩家进来](#6-让玩家进来)
+7. [日常维护](#7-日常维护)
+8. [可调的设置](#8-可调的设置)
+9. [常见问题](#9-常见问题)
+
+### 1. 需要准备什么
+
+用来编译的电脑：
+
+- Windows 10 / 11，64 位
+- 通过 Steam 安装好的 *Dead Island: Epidemic*。游戏已从商店下架，所以必须是你 Steam 库里已经有的
+- [.NET SDK 9](https://dotnet.microsoft.com/download/dotnet/9.0)
+- [Python 3](https://www.python.org/downloads/)，并且加进了 `PATH`（编译过程会调用一个脚本）
+- [ILSpy](https://github.com/icsharpcode/ILSpy/releases) 10.x——**不要用** dnSpyEx，它反编译出来的代码编不过
+- Git，用来克隆本仓库
+
+用来开服的机器（和编译的电脑不是同一台时）：Windows Server 2016 及以上，或 Windows 10 / 11。上面什么都不用装——打出来的服务器包自带 .NET 运行时和游戏数据。配置按人数估：每局大约占 20 MB 内存和一个 CPU 核心的百分之几；实测 4 核 8 G 的机器能同时跑 25 局左右。
+
+### 2. 准备游戏代码和数据
+
+服务端复用了游戏自己的模拟和网络代码。这部分代码不归我们公开，所以要从你自己的游戏安装里取。只需做一次，大约十分钟。
+
+下文的 `GAME` 指游戏目录——在 Steam 里右键游戏 →「管理」→「浏览本地文件」。通常是：
+
+```
+C:\Program Files (x86)\Steam\steamapps\common\Dead Island Epidemic
+```
+
+**2.1 把本仓库克隆到一个单独的文件夹里**
+
+反编译出来的代码要放在仓库**旁边**而不是里面，所以先建一个空的上级文件夹：
+
+```
+mkdir C:\DIE
+cd C:\DIE
+git clone https://github.com/spardanviro/DIE-Reborn.git
+```
+
+**2.2 反编译三个游戏程序集**
+
+打开 ILSpy。对下表每一行：「File → Open…」打开那个 DLL，在左边的树里选中这个程序集，再点「File → Save Code…」，保存类型选 **C# project**，保存到 `C:\DIE` 下一个**名字完全一致的新文件夹**里。
+
+| `GAME\Dead Island Epidemic_Data\Managed\` 里的 DLL | 保存到 |
+|---|---|
+| `StunCore.dll` | `C:\DIE\StunCore_SourceCode\` |
+| `ConductorCrafting.dll` | `C:\DIE\ConductorCrafting_SourceCode\` |
+| `Assembly-CSharp.dll` | `C:\DIE\Dead Island Epidemic_Data_SourceCode\` |
+
+ILSpy 的设置保持默认。做完后应该是这样：
+
+```
+C:\DIE\
+├─ DIE-Reborn\                              ← 本仓库
+├─ StunCore_SourceCode\
+├─ ConductorCrafting_SourceCode\
+└─ Dead Island Epidemic_Data_SourceCode\
+```
+
+不要手改反编译出来的文件。编译时会把它们拷一份，在副本上打补丁（`tools\sanitize_decompiled.py`），再编译副本。如果你给仓库文件夹改了名，或者把这三棵代码树放在别处，就改 `Directory.Build.props` 里的路径。
+
+**2.3 提取物品图鉴**
+
+```
+cd C:\DIE\DIE-Reborn
+python tools\extract_crafting_data.py
+```
+
+它会生成 `data\GameCraftingData.xml`。如果游戏不在 Steam 的默认位置，把 `GAME\Dead Island Epidemic - Crib_Data\resources.assets` 的完整路径作为第一个参数传给它。
+
+**2.4 放入 Valve 的 Steamworks 运行库**
+
+服务端会以"匿名游戏服务器"的身份登录 Steam，用来核实每个玩家是谁。下载 [Steamworks.NET](https://github.com/rlabrecque/Steamworks.NET/releases) 的 *Standalone* 压缩包（版本见 `lib\steamworks\README.md`），把里面的 `Windows-x64\steam_api64.dll` 复制到 `lib\steamworks\`。
+
+### 3. 在自己电脑上编译和运行
+
+```
+cd C:\DIE\DIE-Reborn
+dotnet build
+run-server.cmd
+```
+
+第一次编译要几分钟。服务端起来后，窗口里会依次出现这几行：
+
+```
+游戏数据已加载: …
+Request 服务器已监听 0.0.0.0:1555
+匹配服务器已监听 0.0.0.0:2555
+状态接口已监听 TCP 8555
+已以匿名游戏服务器登录 Steam …        （启动后几秒）
+```
+
+用浏览器检查：打开 <http://127.0.0.1:8555/status>，应该返回一小段 JSON。关掉窗口或按 Ctrl+C 就是停服。
+
+### 4. 让客户端连上本机服务器
+
+用 <https://github.com/spardanviro/DIElauncher> 的登陆器（1.1.0 或更新的版本）：
+
+1. 把 `DIE-Launcher.exe` 单独放在一个文件夹里。
+2. 在它旁边新建一个文本文件，命名为 `launcher.json`，内容是：
+   ```json
+   { "serverHost": "127.0.0.1" }
+   ```
+3. 运行登陆器。服务器那一栏应该显示**已开服**。点**安装补丁**，然后点**开始游戏**。
+
+每次点"开始游戏"，登陆器都会把这个地址写进游戏的 `ip.cfg`，所以游戏连的是你的服务器，而不是补丁默认指向的那台。Steam 必须开着并且已登录。
+
+想让家里局域网的另一台电脑加入：把 `127.0.0.1` 换成开服那台电脑的局域网地址（比如 `192.168.1.20`），并在开服的电脑上让 Windows 防火墙放行 5.3 里的端口。
+
+### 5. 部署到公网服务器
+
+**5.1 写明玩家要连的地址**
+
+在仓库根目录新建 `public-host.txt`，里面写一行：服务器的公网 IP 或域名。
+
+```
+203.0.113.10
+```
+
+开局时服务端会把这个地址发给玩家，所以它必须是从公网能连到的地址，不能是 `10.x`、`172.16.x`、`192.168.x` 这类内网地址。
+
+**5.2 打服务器包**
+
+双击 `打包服务器.cmd`，或者运行：
+
+```
+powershell -ExecutionPolicy Bypass -File tools\make-server-pack.ps1
+```
+
+它会在仓库旁边生成 `DIE_服务器包` 文件夹和同名的 zip。里面的 `DIE_Server\` 包含：自带 .NET 运行时的服务端、从你的游戏里拷出的地图和数据、从你的 Steam 安装里拷出的 Steam 运行库文件，以及三个脚本。这一步要求打包的电脑上装着 Steam。
+
+这个包里有游戏和 Steam 的文件，只用于你自己的服务器，不要公开发布。
+
+**5.3 开放端口**
+
+| 协议 | 端口 | 用途 |
+|---|---|---|
+| TCP | 1555 | 登录、菜单、背包、商店 |
+| TCP | 2555 | 匹配 |
+| TCP | 8555 | 登陆器的状态接口和补丁镜像（只读） |
+| UDP | 50000–50099 | 对局，每局占一个端口 |
+
+有两处都要放行：
+
+- **云厂商的防火墙**（阿里云、腾讯云等叫"安全组"）：给上面四项各加一条入方向规则，来源填 `0.0.0.0/0`。
+- **服务器上的 Windows 防火墙**：右键 `DIE_Server` 里的 `开放防火墙.cmd` →「以管理员身份运行」，它会加上同样的四条规则。
+
+如果服务器是放在家用路由器后面的电脑，就在路由器上把这些端口转发给它。
+
+**5.4 启动**
+
+把 `DIE_Server` 文件夹复制到服务器上（路径里最好不要有中文，比如 `C:\DIE_Server`），双击 `启动服务器.cmd`。应该看到和第 3 步一样的几行，另外多一行显示公网地址。
+
+在任意一台别的电脑上打开 `http://<你的地址>:8555/status`，能返回内容就说明玩家连得进来。
+
+关掉窗口就是停服。如果用远程桌面连服务器，结束时选"断开"而不是"注销"——注销会把服务端一起关掉。
+
+### 6. 让玩家进来
+
+发给玩家两样东西：登陆器的地址 **<https://github.com/spardanviro/DIElauncher>**，和一个写着你服务器地址的 `launcher.json`：
+
+```json
+{ "serverHost": "203.0.113.10" }
+```
+
+玩家把 `launcher.json` 放在 `DIE-Launcher.exe` 同一个文件夹里，运行登陆器，点**安装补丁**，再点**开始游戏**。登陆器页面上有玩家这一侧的完整步骤。
+
+玩家的身份就是他的 Steam 账号，由 Steam 核验；不用注册，也没有密码。玩家第一次登录时，服务器上会自动建好他的账号。
+
+### 7. 日常维护
+
+**各样东西在哪**（都在 `DIE_Server` 里）：
+
+| 路径 | 说明 |
+|---|---|
+| `data\die_reborn.db` | 所有账号：进度、背包、货币。**备份这一个文件就等于备份了全部。** |
+| `logs\` | 日志，每天一个文件 |
+| `public-host.txt` | 公网地址。地址变了就改它，然后重启 |
+| `leave-punish-exempt.txt` | 可选。一行一个 SteamID64：这些账号中途退出对局不受惩罚（测试时用） |
+| `patch\` | 可选。登陆器客户端补丁的副本，通过 8555 端口提供给连不上 GitHub 的玩家 |
+
+**更新服务端**
+
+1. 在仓库里 `git pull`，重新运行 `打包服务器.cmd`。
+2. 停服，把 `data\die_reborn.db` 另存一份。
+3. 用新的 `DIE_Server` 覆盖服务器上的文件夹。普通的包里不带账号库，覆盖不会动到账号。
+4. 开服。
+
+**Steam 上游戏更新之后**（这个游戏基本不会再更新，但万一客户端版本变了）：三个 DLL 重新反编译一遍，重新运行 `tools\extract_crafting_data.py`，再重新编译。
+
+### 8. 可调的设置
+
+在启动服务端之前设成环境变量。
+
+| 变量 | 作用 |
+|---|---|
+| `DIE_GAME_ROOT` | 从哪里读地图和数据。默认先找服务端旁边的 `gamedata` 文件夹，再找 Steam 里的游戏安装。 |
+| `DIE_PUBLIC_HOST` | 公网地址，优先于 `public-host.txt`。 |
+| `DIE_STATUS_PORT` | 状态接口的端口，设成 `0` 关闭。默认 `8555`。 |
+| `DIE_STEAM_AUTH=trust` | **仅限开发。**跳过 Steam 核验：任何人都能冒充任何 Steam 账号。绝不要在别人能连到的服务器上用。 |
+
+登录端口可以作为第一个命令行参数传入（默认 `1555`）。客户端默认找 `1555` 和 `2555`，除非它的 `ip.cfg` 另有设置，所以改端口意味着每个客户端都要跟着改。
+
+### 9. 常见问题
+
+| 现象 | 多半是因为 |
+|---|---|
+| 编译报几千条"找不到类型" | 某一棵反编译代码树缺了、文件夹名不对，或者存错了位置。对照 2.2 的目录结构检查。 |
+| 编译在 `sanitize_decompiled.py` 这一步失败 | Python 不在 `PATH` 里，或者反编译用的不是 ILSpy 10.x。 |
+| 提示找不到 `GameCraftingData.xml` | 漏了 2.3。 |
+| 服务端一启动就退出，报 `steam_api64` 相关的错 | 漏了 2.4，或者这个 DLL 和 `Steamworks.NET.dll` 的版本不配套。 |
+| 一直没有"已以匿名游戏服务器登录 Steam"这一行 | 服务器连不上 Steam。出站流量必须放行。 |
+| 登陆器显示**未开服** | 8555 端口在某一处没放行（云厂商防火墙或 Windows 防火墙），或者服务端没在运行。 |
+| 登陆器显示已开服，但游戏登录不上 | TCP 1555 没放行，或者玩家的 `launcher.json` 里地址写错了。 |
+| 能登录，但对局开不了，或者所有人卡在加载后超时 | UDP 50000–50099 没放行，或者 `public-host.txt` 里写的是内网地址。 |
+| 游戏一打开就报登录错误 | 玩家电脑上 Steam 没开，或者游戏不是通过 Steam 启动的。 |
+
+反馈问题时请附上 `logs\` 里当天的日志文件。
+
+---
+
+## 关于这个仓库
+
+这里是私有开发仓库的快照导出，所以提交历史很短。原版服务端逻辑大多随官服一起丢失，这里的很多行为是照着客户端重建的，有些是推测；代码注释里标明了哪些是哪些。
+
+## 许可证
+
+本仓库的代码以 [MIT 许可证](LICENSE) 发布。许可证只涵盖本项目自己的代码，不包括游戏本身、游戏资源，以及你从游戏里反编译出来的代码——那些仍归各自的权利人所有。
