@@ -100,6 +100,35 @@
                     <!-- ================= 概览 ================= -->
                     <ScrollViewer x:Name="PageOverview" VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="22,18,22,22">
+                            <!-- 开服前准备: 发布包里没带的游戏数据 / Steam 库, 缺了才出现 -->
+                            <Border x:Name="PrepareCard" Style="{StaticResource Card}" Margin="0,0,0,12"
+                                    BorderBrush="{StaticResource Hazard}" BorderThickness="2,1,1,1"
+                                    Visibility="Collapsed">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="prep.title" Style="{StaticResource SectionTitle}"/>
+                                    <TextBlock l:Loc.Key="prep.explain" Style="{StaticResource Soft}"
+                                               Margin="0,0,0,12"/>
+                                    <ItemsControl x:Name="PrepareList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,0,0,6">
+                                                    <Ellipse Width="9" Height="9" Margin="0,4,10,0"
+                                                             VerticalAlignment="Top" Fill="{Binding Brush}"/>
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button x:Name="ImportGameButton" Style="{StaticResource GhostButton}"
+                                                l:Loc.Key="prep.pickGame" Click="ImportGame_Click" Margin="0,0,8,0"/>
+                                        <Button x:Name="SteamCmdButton" Style="{StaticResource GhostButton}"
+                                                l:Loc.Key="prep.steamcmd" Click="SteamCmd_Click"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="PrepareNote" Style="{StaticResource Soft}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
                             <UniformGrid Columns="3">
                                 <Border Style="{StaticResource Card}" Margin="0,0,8,0">
                                     <StackPanel>

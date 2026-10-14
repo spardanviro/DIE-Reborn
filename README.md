@@ -15,6 +15,20 @@ Playable end to end: Steam login, the Crib (inventory, crafting, shop, progressi
 
 ---
 
+## Quick start (no building)
+
+1. Download **`DIE-Server.zip`** from [Releases](https://github.com/spardanviro/DIE-Reborn/releases/latest) and extract it to a path without non-ASCII characters, for example `C:\DIE_Server`.
+2. Double-click **`DIE-ServerConsole.exe`** (the server console). It checks and opens Windows Firewall and prepares the files the server needs.
+   The release **contains no game files and no Steam client libraries** (they cannot be redistributed); they come from your own game and Steam:
+   - On a PC with the game and Steam installed this happens automatically.
+   - On a cloud server without the game: copy the game folder over from your PC (at least `cachedata.sexp`, `cacheattributs.sexp`, the `Maps` folder and `Dead Island Epidemic - Crib_Data\resources.assets`) and press *Choose the game folder…* on the console's Overview page; then press *Get the Steam libraries*, which downloads Valve's official SteamCMD.
+3. Under *Settings*, enter a server name, press *Detect* for the public address, save, then press **Start**.
+4. On a cloud server, also open TCP 1555, 2555, 8555 and UDP 50000–50099 in the security group (see [5.3](#5-put-it-on-a-public-server)).
+
+About a minute after starting, the server shows up in every player's launcher server list. The console is described in [5.5](#5-put-it-on-a-public-server); to build from source instead, follow the full guide below.
+
+---
+
 ## Hosting guide
 
 1. [What you need](#1-what-you-need)

@@ -281,6 +281,7 @@ namespace DIE.ServerConsole
             _probe = null;
             SetState(_server.Attach() != null ? ServerState.Starting : ServerState.Stopped);
             _ = CheckFirewallAsync(autoFix: false);
+            _ = PrepareFilesAsync();
         }
 
         private void OpenFolder_Click(object sender, RoutedEventArgs e) => Platform.OpenFolder(_server.Directory);

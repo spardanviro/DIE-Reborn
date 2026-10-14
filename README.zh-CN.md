@@ -15,6 +15,20 @@
 
 ---
 
+## 快速开服（不用自己编译）
+
+1. 在 [Releases](https://github.com/spardanviro/DIE-Reborn/releases/latest) 里下载 **`DIE-Server.zip`**，解压到路径里没有中文的地方，比如 `C:\DIE_Server`。
+2. 双击 **`DIE-ServerConsole.exe`**（服务器控制台）。它会自动检查并放行 Windows 防火墙，并准备开服要的文件。
+   发布包里**不带游戏文件和 Steam 客户端库**（不能公开分发），它们来自你自己的游戏和 Steam：
+   - 这台电脑装着游戏和 Steam：自动取好，什么都不用做。
+   - 云服务器上没装游戏：把自己电脑上的游戏文件夹拷过去（至少要 `cachedata.sexp`、`cacheattributs.sexp`、`Maps` 文件夹和 `Dead Island Epidemic - Crib_Data\resources.assets`），在控制台概览页点「选择游戏文件夹…」；再点「下载 Steam 客户端库」，控制台会从 Valve 官方下载 SteamCMD 取得。
+3. 在「设置」里填服务器名称，公网地址点「自动检测」，保存，然后点**开服**。
+4. 云服务器还要在安全组里放行 TCP 1555、2555、8555 和 UDP 50000–50099（见 [5.3](#5-部署到公网服务器)）。
+
+开服一分钟后，服务器会自动出现在所有玩家登陆器的服务器列表里。控制台的用法见 [5.5](#5-部署到公网服务器)；想自己从源码编译，看下面的完整教程。
+
+---
+
 ## 开服教程
 
 1. [需要准备什么](#1-需要准备什么)

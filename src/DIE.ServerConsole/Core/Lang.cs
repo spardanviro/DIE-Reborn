@@ -306,6 +306,40 @@ namespace DIE.ServerConsole.Core
             ["set.backupFailed"] = new[] { "备份失败: {0}", "Backup failed: {0}" },
             ["set.pickExe"] = new[] { "选择服务端程序 DIE.Server.exe", "Select the server program DIE.Server.exe" },
 
+            // ---- 开服前准备 (发布包里没带的游戏数据 / Steam 库) ----
+            ["prep.title"] = new[] { "开服前准备", "BEFORE THE FIRST START" },
+            ["prep.explain"] = new[]
+            {
+                "公开发布的服务器包不带游戏文件和 Steam 客户端库, 要从你自己的游戏和 Steam 里取。装着游戏的电脑上控制台会自动取; 云服务器上没装游戏的, 先把电脑上的游戏文件夹整个拷过去 (至少要 cachedata.sexp、cacheattributs.sexp、Maps 文件夹和 \"Dead Island Epidemic - Crib_Data\\resources.assets\"), 再点下面的按钮。",
+                "The public server package contains no game files and no Steam client libraries; they come from your own copy of the game and Steam. On a PC with the game installed the console fetches them automatically. On a cloud server without the game, copy the game folder over from your PC (at least cachedata.sexp, cacheattributs.sexp, the Maps folder and \"Dead Island Epidemic - Crib_Data\\resources.assets\"), then use the buttons below.",
+            },
+            ["prep.gameDataOk"] = new[] { "游戏数据 (地图、缓存数据) —— 已就绪", "Game data (maps, cache data) — ready" },
+            ["prep.gameDataMissing"] = new[] { "游戏数据 (地图、缓存数据) —— 缺", "Game data (maps, cache data) — missing" },
+            ["prep.craftingOk"] = new[] { "物品图鉴 GameCraftingData.xml —— 已就绪", "Item catalogue GameCraftingData.xml — ready" },
+            ["prep.craftingMissing"] = new[] { "物品图鉴 GameCraftingData.xml —— 缺 (从游戏的 resources.assets 里提取)", "Item catalogue GameCraftingData.xml — missing (extracted from the game's resources.assets)" },
+            ["prep.steamOk"] = new[] { "Steam 客户端库 —— 已就绪", "Steam client libraries — ready" },
+            ["prep.steamMissing"] = new[] { "Steam 客户端库 (steamclient64.dll 等三个) —— 缺", "Steam client libraries (steamclient64.dll and two more) — missing" },
+            ["prep.pickGame"] = new[] { "选择游戏文件夹…", "Choose the game folder…" },
+            ["prep.pickTitle"] = new[] { "选择游戏文件夹里的 cachedata.sexp", "Select cachedata.sexp in the game folder" },
+            ["prep.steamcmd"] = new[] { "下载 Steam 客户端库 (Valve 官方 SteamCMD)", "Get the Steam libraries (Valve's SteamCMD)" },
+            ["prep.importing"] = new[] { "正在复制游戏数据并提取物品图鉴…", "Copying game data and extracting the item catalogue…" },
+            ["prep.importedGame"] = new[] { "已从 {0} 导入游戏数据。", "Imported game data from {0}." },
+            ["prep.copiedSteam"] = new[] { "已从 {0} 复制 Steam 客户端库。", "Copied the Steam client libraries from {0}." },
+            ["prep.autoFailed"] = new[] { "自动准备失败: {0}", "Automatic preparation failed: {0}" },
+            ["prep.steamcmdDone"] = new[] { "Steam 客户端库已就绪。", "The Steam client libraries are ready." },
+            ["prep.failed"] = new[] { "没成功: {0}", "Failed: {0}" },
+            ["msg.notReady"] = new[] { "还缺开服要的文件 —— 看概览页顶上的\"开服前准备\"。", "Files needed to start are missing — see \"Before the first start\" on the Overview page." },
+            ["files.notGameDir"] = new[]
+            {
+                "{0} 里缺游戏文件: 要有 cachedata.sexp、cacheattributs.sexp、Maps 文件夹和 Dead Island Epidemic - Crib_Data\\resources.assets",
+                "{0} is missing game files: it needs cachedata.sexp, cacheattributs.sexp, the Maps folder and Dead Island Epidemic - Crib_Data\\resources.assets",
+            },
+            ["files.noCrafting"] = new[] { "resources.assets 里找不到物品图鉴 —— 游戏文件不完整, 或者不是这个游戏的", "No item catalogue in resources.assets — the game files are incomplete or from a different game" },
+            ["steamcmd.downloading"] = new[] { "正在从 Valve 下载 SteamCMD…", "Downloading SteamCMD from Valve…" },
+            ["steamcmd.updating"] = new[] { "SteamCMD 第一次运行, 正在自我更新 (几十 MB, 要一两分钟)…", "SteamCMD is updating itself on first run (tens of MB, a minute or two)…" },
+            ["steamcmd.noLibraries"] = new[] { "SteamCMD 更新完了, 但 {0} 里没有 Steam 客户端库", "SteamCMD finished but {0} has no Steam client libraries" },
+            ["steamcmd.timeout"] = new[] { "SteamCMD 十分钟还没更新完, 检查服务器能不能连上 Steam", "SteamCMD did not finish within ten minutes; check that the server can reach Steam" },
+
             // ---- 格式 ----
             ["time.dh"] = new[] { "{0} 天 {1} 小时", "{0}d {1}h" },
             ["time.hm"] = new[] { "{0} 小时 {1} 分", "{0}h {1}m" },

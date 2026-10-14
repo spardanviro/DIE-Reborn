@@ -38,17 +38,25 @@ param(
     [string] $OutDir = '',
 
     # 不压 zip (默认会在包目录旁边生成同名 .zip, 上传用)
-    [switch] $NoZip
+    [switch] $NoZip,
+
+    # 公开发布用 (GitHub Releases): 不带游戏数据、物品图鉴、Steam 客户端库、公网地址和任何本机的东西。
+    # 缺的那几样由服务器控制台在开服的机器上从游戏 / Steam 补齐 (见 src\DIE.ServerConsole\Core\GameFiles.cs)。
+    # 玩家 2026-10-14 定: 发布包里不放游戏和 Valve 的文件。
+    [switch] $Release
 )
 
 $ErrorActionPreference = 'Stop'
 
 $repo = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
-if (-not $OutDir) { $OutDir = Join-Path $repo '..\DIE_服务器包' }
+if (-not $OutDir) { $OutDir = Join-Path $repo $(if ($Release) { '..\DIE_服务器发布' } else { '..\DIE_服务器包' }) }
 $OutDir = [System.IO.Path]::GetFullPath($OutDir)
 $server = Join-Path $OutDir 'DIE_Server'
 
-if (-not $PublicHost) {
+if ($Release) {
+    if ($IncludeDatabase -or $ImportLocalAccounts) { throw "-Release 不能带账号库" }
+}
+elseif (-not $PublicHost) {
     $hostFile = Join-Path $repo 'public-host.txt'
     if (Test-Path $hostFile) {
         $PublicHost = Get-Content $hostFile -Encoding UTF8 |
@@ -60,12 +68,14 @@ if (-not $PublicHost) {
 }
 
 $gameFiles = 'cachedata.sexp', 'cacheattributs.sexp'
-foreach ($f in $gameFiles + 'Maps') {
-    if (-not (Test-Path (Join-Path $GameRoot $f))) { throw "游戏目录里缺 $f ($GameRoot)" }
-}
 $steamDlls = 'steamclient64.dll', 'tier0_s64.dll', 'vstdlib_s64.dll'
-foreach ($f in $steamDlls) {
-    if (-not (Test-Path (Join-Path $SteamDir $f))) { throw "Steam 目录里缺 $f ($SteamDir)" }
+if (-not $Release) {
+    foreach ($f in $gameFiles + 'Maps') {
+        if (-not (Test-Path (Join-Path $GameRoot $f))) { throw "游戏目录里缺 $f ($GameRoot)" }
+    }
+    foreach ($f in $steamDlls) {
+        if (-not (Test-Path (Join-Path $SteamDir $f))) { throw "Steam 目录里缺 $f ($SteamDir)" }
+    }
 }
 
 if (Test-Path $OutDir) { Remove-Item $OutDir -Recurse -Force }
@@ -88,19 +98,28 @@ if ($LASTEXITCODE -ne 0) { throw "编译服务器控制台失败" }
 Copy-Item (Join-Path $consoleBuild 'DIE-ServerConsole.exe') $server
 Remove-Item $consoleBuild -Recurse -Force
 
-# ---- 2. 游戏数据 ----
-$data = Join-Path $server 'gamedata'
-New-Item -ItemType Directory -Force $data | Out-Null
-foreach ($f in $gameFiles) { Copy-Item (Join-Path $GameRoot $f) $data }
-Copy-Item (Join-Path $GameRoot 'Maps') $data -Recurse
+if ($Release) {
+    # ---- 2 / 3 (发布包). 游戏的东西一样不带 ----
+    # 物品图鉴是 csproj 链接进输出的 (从游戏里提取的), 调试符号也不发
+    Remove-Item (Join-Path $server 'data\GameCraftingData.xml') -Force
+    Get-ChildItem $server -Filter *.pdb | Remove-Item -Force
+}
+else {
+    # ---- 2. 游戏数据 ----
+    $data = Join-Path $server 'gamedata'
+    New-Item -ItemType Directory -Force $data | Out-Null
+    foreach ($f in $gameFiles) { Copy-Item (Join-Path $GameRoot $f) $data }
+    Copy-Item (Join-Path $GameRoot 'Maps') $data -Recurse
 
-# ---- 3. Steam 游戏服务器运行库 ----
-foreach ($f in $steamDlls) { Copy-Item (Join-Path $SteamDir $f) $server }
+    # ---- 3. Steam 游戏服务器运行库 ----
+    foreach ($f in $steamDlls) { Copy-Item (Join-Path $SteamDir $f) $server }
+}
 
-# ---- 4. 公网地址 ----
+# ---- 4. 公网地址 (发布包里空着, 服主在控制台「设置」里填 / 自动检测) ----
 $hostText = @"
 # 服务器公网地址 —— 发给从公网连进来的玩家, 他们的游戏拿它去连战斗服。
-# 公网 IP 变了就改这一行, 重启服务器。
+# 公网 IP 变了就改这一行, 重启服务器。服务器控制台的「设置」里可以自动检测并填好。
+# Public IP or domain of this server. The server console can detect and fill it in (Settings).
 $PublicHost
 "@
 [System.IO.File]::WriteAllText((Join-Path $server 'public-host.txt'), ($hostText -replace "`r?`n", "`r`n"),
@@ -108,7 +127,7 @@ $PublicHost
 
 # ---- 4.2 离局惩罚免罚名单 (Steam ID), 仓库根有就带上 ----
 $exemptFile = Join-Path $repo 'leave-punish-exempt.txt'
-if (Test-Path $exemptFile) { Copy-Item $exemptFile $server }
+if ((Test-Path $exemptFile) -and -not $Release) { Copy-Item $exemptFile $server }
 
 # ---- 4.5 版本号: 云上跑的是哪一版, 以后好对比"上次部署之后改了什么" ----
 $commit = (& git.exe -C $repo rev-parse --short HEAD 2>$null)
@@ -125,7 +144,7 @@ if ($dirty) {
 # ---- 4.7 登陆器的补丁镜像 (国内直连 GitHub 下不动时, 登陆器从状态接口 8555 拉这里的) ----
 # 由 tools\make-launcher-release.ps1 生成; 没出过发布就没有这个文件夹, 跳过。
 $patchMirror = Join-Path $repo '..\DIE_登陆器发布\patch'
-if (Test-Path (Join-Path $patchMirror 'latest.json')) {
+if ((Test-Path (Join-Path $patchMirror 'latest.json')) -and -not $Release) {
     Copy-Item $patchMirror (Join-Path $server 'patch') -Recurse
     Write-Host "已带上登陆器补丁镜像 (patch\)"
 }
@@ -162,14 +181,20 @@ if ($ImportLocalAccounts) {
 $templates = Join-Path $PSScriptRoot 'server-pack'
 Copy-Item (Join-Path $templates '启动服务器.cmd') $server
 Copy-Item (Join-Path $templates '开放防火墙.cmd') $server
-Copy-Item (Join-Path $templates '导入本机账号.cmd') $server
+if (-not $Release) { Copy-Item (Join-Path $templates '导入本机账号.cmd') $server }
 
 # 服务器列表里显示的名字 / 位置: 仓库根有自己填好的就用它, 没有就放模板 (全空 = 显示 IP、位置自动查)
+# 发布包一律放模板
 $infoFile = Join-Path $repo 'server-info.txt'
-if (-not (Test-Path $infoFile)) { $infoFile = Join-Path $templates 'server-info.txt' }
+if ($Release -or -not (Test-Path $infoFile)) { $infoFile = Join-Path $templates 'server-info.txt' }
 Copy-Item $infoFile (Join-Path $server 'server-info.txt')
-$readme = [System.IO.File]::ReadAllText((Join-Path $templates '说明.txt')).Replace('{PUBLIC_HOST}', $PublicHost)
-[System.IO.File]::WriteAllText((Join-Path $OutDir '说明.txt'), $readme, (New-Object System.Text.UTF8Encoding($true)))
+if ($Release) {
+    Copy-Item (Join-Path $templates 'README-release.txt') (Join-Path $server 'README.txt')
+}
+else {
+    $readme = [System.IO.File]::ReadAllText((Join-Path $templates '说明.txt')).Replace('{PUBLIC_HOST}', $PublicHost)
+    [System.IO.File]::WriteAllText((Join-Path $OutDir '说明.txt'), $readme, (New-Object System.Text.UTF8Encoding($true)))
+}
 
 $size = (Get-ChildItem $OutDir -Recurse -File | Measure-Object Length -Sum).Sum / 1MB
 Write-Host ("已生成: {0}  ({1:N0} MB)" -f $OutDir, $size)
@@ -180,10 +205,12 @@ Write-Host ("已生成: {0}  ({1:N0} MB)" -f $OutDir, $size)
 #   Windows PowerShell 5 (.NET Fx)  给 UTF-8 不置标志位, 资源管理器会按 GBK 读成乱码 -> 不给编码, 按系统代码页 (GBK) 存,
 #                                   中文 Windows 解压是对的。「打包服务器.cmd」有 pwsh 就用 pwsh。
 if (-not $NoZip) {
-    $zip = "$OutDir.zip"
+    # 发布包: zip 里直接是 DIE_Server\ 一层, 解压就能用
+    $zip = if ($Release) { Join-Path $OutDir 'DIE-Server.zip' } else { "$OutDir.zip" }
+    $zipRoot = if ($Release) { $server } else { $OutDir }
     if (Test-Path $zip) { Remove-Item $zip -Force }
     Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::CreateFromDirectory($OutDir, $zip,
+    [System.IO.Compression.ZipFile]::CreateFromDirectory($zipRoot, $zip,
         [System.IO.Compression.CompressionLevel]::Optimal, $true)
     Write-Host ("已压缩: {0}  ({1:N0} MB)" -f $zip, ((Get-Item $zip).Length / 1MB))
 }

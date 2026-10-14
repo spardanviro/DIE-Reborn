@@ -88,10 +88,13 @@ namespace DIE.ServerConsole
 
             _tick.Start();
 
+            // 公开发布包里没有游戏数据和 Steam 客户端库: 先从本机补
+            await PrepareFilesAsync();
+
             // 先查防火墙 (缺了自动补, 弹一次管理员确认), 再按设置自动开服
             await CheckFirewallAsync(autoFix: true);
 
-            if (_state == ServerState.Stopped && _settings.AutoStart)
+            if (_state == ServerState.Stopped && _settings.AutoStart && FilesReady)
             {
                 StartServer();
             }
@@ -175,6 +178,13 @@ namespace DIE.ServerConsole
             if (_server.Attach() != null)
             {
                 SetState(ServerState.Starting);
+                return;
+            }
+
+            if (!FilesReady)
+            {
+                Say(Lang.T("msg.notReady"));
+                NavOverview.IsChecked = true;
                 return;
             }
 
@@ -382,7 +392,7 @@ namespace DIE.ServerConsole
             bool running = _state == ServerState.Running;
             bool busy = _state == ServerState.Starting || _state == ServerState.Stopping;
 
-            StartButton.IsEnabled = _state == ServerState.Stopped;
+            StartButton.IsEnabled = _state == ServerState.Stopped && FilesReady;
             StopButton.IsEnabled = running || _state == ServerState.Starting;
             RestartButton.IsEnabled = running;
 
@@ -466,6 +476,7 @@ namespace DIE.ServerConsole
             RenderFirewall();
             RenderProbe();
             RenderCloudRules();
+            RenderPrepare();
             RefreshLogFilter();
         }
 
