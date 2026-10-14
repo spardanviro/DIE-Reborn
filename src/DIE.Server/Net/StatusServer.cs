@@ -18,9 +18,14 @@ namespace DIE.Server.Net;
 ///
 /// ## 三条路由, 全部只读
 ///
-///     GET /status            {"online":3,"inMatch":2,"matches":1,...}
+///     GET /status            {"online":3,"inMatch":2,"matches":1,"name":...,"location":...}
 ///     GET /patch/latest.json 补丁包镜像的版本和校验值 (发布脚本生成)
 ///     GET /patch/&lt;文件名&gt;     补丁包镜像本体 (服务器包里的 patch\ 文件夹)
+///
+/// 这台兼做服务器列表的登记处时 (<see cref="Registry"/> 不为空) 再多两条:
+///
+///     GET /servers           登陆器拿服务器列表
+///     GET /announce?port=N   别的服务器来报到, 见 <see cref="ServerRegistry"/>
 ///
 /// 补丁包的正主在 GitHub Releases; 这里只是国内直连 GitHub 下不动时的兜底
 /// (玩家 2026-10-07 定)。登陆器不管从哪边下, 都拿校验值核对。
@@ -64,7 +69,13 @@ public sealed class StatusServer : IDisposable
     /// <param name="Matches">正在进行的局数。</param>
     /// <param name="MaxMatches">最多同时开几局。</param>
     /// <param name="Version">服务端版本 (服务器包的 version.txt, 开发机上为空)。</param>
-    public sealed record Snapshot(int Online, int InMatch, int Matches, int MaxMatches, string Version);
+    /// <param name="Name">服主起的名字 (server-info.txt)。</param>
+    /// <param name="Location">服主填的位置 (server-info.txt)。</param>
+    public sealed record Snapshot(int Online, int InMatch, int Matches, int MaxMatches, string Version,
+                                  string Name = "", string Location = "");
+
+    /// <summary>这台兼做服务器列表的登记处时设上; 平时为空, /servers 和 /announce 回 404。</summary>
+    public ServerRegistry Registry { get; set; }
 
     public StatusServer(Func<Snapshot> snapshot, string baseDir)
     {
@@ -135,8 +146,8 @@ public sealed class StatusServer : IDisposable
                 NetworkStream stream = client.GetStream();
                 IPAddress from = ((IPEndPoint)client.Client.RemoteEndPoint).Address;
 
-                string path = await ReadRequestPath(stream);
-                if (path == null)
+                string target = await ReadRequestTarget(stream);
+                if (target == null)
                 {
                     await Reply(stream, 400, "text/plain", Encoding.UTF8.GetBytes("bad request"));
                     return;
@@ -148,7 +159,7 @@ public sealed class StatusServer : IDisposable
                     return;
                 }
 
-                await Route(stream, path);
+                await Route(stream, target, from);
             }
             catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException
                                            or ObjectDisposedException)
@@ -166,8 +177,8 @@ public sealed class StatusServer : IDisposable
         }
     }
 
-    /// <summary>读到空行为止, 返回 GET 的路径; 不是合法的 GET 返回 null。</summary>
-    private async Task<string> ReadRequestPath(NetworkStream stream)
+    /// <summary>读到空行为止, 返回 GET 的目标 (路径加查询串); 不是合法的 GET 返回 null。</summary>
+    private async Task<string> ReadRequestTarget(NetworkStream stream)
     {
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(_stop.Token);
         timeout.CancelAfter(TimeSpan.FromSeconds(5));
@@ -197,18 +208,35 @@ public sealed class StatusServer : IDisposable
                 return null;
             }
 
-            int query = parts[1].IndexOf('?');
-            return query >= 0 ? parts[1].Substring(0, query) : parts[1];
+            return parts[1];
         }
 
         return null;
     }
 
-    private async Task Route(NetworkStream stream, string path)
+    private async Task Route(NetworkStream stream, string target, IPAddress from)
     {
+        int question = target.IndexOf('?');
+        string path = question >= 0 ? target.Substring(0, question) : target;
+        string query = question >= 0 ? target.Substring(question + 1) : string.Empty;
+
         if (path == "/status" || path == "/")
         {
             await Reply(stream, 200, "application/json; charset=utf-8", StatusJson());
+            return;
+        }
+
+        if (Registry != null && path == "/servers")
+        {
+            await Reply(stream, 200, "application/json; charset=utf-8", Registry.ListJson(DateTime.UtcNow));
+            return;
+        }
+
+        if (Registry != null && path == "/announce")
+        {
+            int port = int.TryParse(QueryValue(query, "port"), out int asked) ? asked : 0;
+            string refused = await Registry.AnnounceAsync(from, port, DateTime.UtcNow, _stop.Token);
+            await Reply(stream, 200, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(refused ?? "ok"));
             return;
         }
 
@@ -226,6 +254,9 @@ public sealed class StatusServer : IDisposable
         await Reply(stream, 404, "text/plain", Encoding.UTF8.GetBytes("not found"));
     }
 
+    /// <summary>此刻的状态 (登记处把自己列进列表时用)。</summary>
+    public Snapshot CurrentSnapshot() => _snapshot();
+
     private byte[] StatusJson()
     {
         Snapshot now = _snapshot();
@@ -239,6 +270,8 @@ public sealed class StatusServer : IDisposable
             ["matches"] = now.Matches,
             ["maxMatches"] = now.MaxMatches,
             ["version"] = now.Version ?? string.Empty,
+            ["name"] = now.Name ?? string.Empty,
+            ["location"] = now.Location ?? string.Empty,
             ["time"] = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"),
         });
     }
@@ -256,6 +289,20 @@ public sealed class StatusServer : IDisposable
 
         string full = Path.Combine(_patchDir, name);
         return File.Exists(full) ? full : null;
+    }
+
+    private static string QueryValue(string query, string key)
+    {
+        foreach (string pair in query.Split('&'))
+        {
+            int equals = pair.IndexOf('=');
+            if (equals > 0 && pair.Substring(0, equals) == key)
+            {
+                return Uri.UnescapeDataString(pair.Substring(equals + 1));
+            }
+        }
+
+        return null;
     }
 
     /// <summary>这个 IP 这一下放不放行 (10 秒一个窗口)。</summary>

@@ -1,0 +1,16 @@
+# 这台服务器在登陆器"服务器"列表里怎么显示。改完重启服务端生效。
+# How this server appears in the launcher's server list. Restart the server after editing.
+#
+# name      服务器名字 (40 字以内)。不填就显示 IP。
+#           Server name (up to 40 characters). Blank = show the IP address.
+# location  位置, 比如 "华东 · 杭州"。不填的话按 IP 自动查一个大致地区。
+#           Location, e.g. "US West". Blank = looked up from the IP automatically.
+# listed    yes = 自动出现在所有玩家的服务器列表里; no = 不上列表 (玩家要用 launcher.json 才连得到)。
+#           yes = listed for every player automatically; no = unlisted (players need launcher.json).
+#
+# 上列表要求状态端口 TCP 8555 对公网开放: 登记处会反过来连一下确认这台服务器真的在。
+# Being listed requires TCP 8555 to be reachable from the internet: the registry connects back to check.
+
+name=
+location=
+listed=yes

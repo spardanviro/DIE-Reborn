@@ -153,6 +153,11 @@ $templates = Join-Path $PSScriptRoot 'server-pack'
 Copy-Item (Join-Path $templates '启动服务器.cmd') $server
 Copy-Item (Join-Path $templates '开放防火墙.cmd') $server
 Copy-Item (Join-Path $templates '导入本机账号.cmd') $server
+
+# 服务器列表里显示的名字 / 位置: 仓库根有自己填好的就用它, 没有就放模板 (全空 = 显示 IP、位置自动查)
+$infoFile = Join-Path $repo 'server-info.txt'
+if (-not (Test-Path $infoFile)) { $infoFile = Join-Path $templates 'server-info.txt' }
+Copy-Item $infoFile (Join-Path $server 'server-info.txt')
 $readme = [System.IO.File]::ReadAllText((Join-Path $templates '说明.txt')).Replace('{PUBLIC_HOST}', $PublicHost)
 [System.IO.File]::WriteAllText((Join-Path $OutDir '说明.txt'), $readme, (New-Object System.Text.UTF8Encoding($true)))
 

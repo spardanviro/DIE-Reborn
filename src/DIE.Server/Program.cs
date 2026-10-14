@@ -123,7 +123,14 @@ internal static class Program
             // 登陆器的状态接口 (在线人数 / 局数 / 补丁镜像)。起不来不影响开服, 只是登陆器看不到。
             // DIE_STATUS_PORT=0 关掉, 别的数换端口。
             string serverVersion = File.Exists(versionFile) ? File.ReadAllText(versionFile).Trim() : string.Empty;
-            using StatusServer status = new StatusServer(() => StatusOf(server, matchHosts, serverVersion), baseDir);
+
+            // 服主填的名字 / 位置 / 要不要上列表 —— 和 public-host.txt 一样两处都找
+            ServerInfo info = ServerInfo.Load(Directory.GetCurrentDirectory())
+                              ?? ServerInfo.Load(baseDir)
+                              ?? new ServerInfo();
+
+            using StatusServer status = new StatusServer(
+                () => StatusOf(server, matchHosts, serverVersion, info), baseDir);
             int statusPort = int.TryParse(Environment.GetEnvironmentVariable("DIE_STATUS_PORT"), out int asked)
                 ? asked
                 : StatusServer.DefaultPort;
@@ -131,6 +138,8 @@ internal static class Program
             {
                 status.Start(IPAddress.Any, statusPort);
             }
+
+            using IDisposable listing = StartServerListing(status, statusPort, publicHost, info);
 
             LogReachableAddresses(publicHost, matchHosts);
 
@@ -164,8 +173,58 @@ internal static class Program
     /// <c>DIE_STEAM_AUTH=trust</c>: 自称是谁就是谁, 不找 Steam —— 只给断网的本机开发用,
     /// 公网上开等于谁都能冒充任何人。
     /// </summary>
+    /// <summary>
+    /// 登陆器的服务器列表 (玩家 2026-10-14: "只要是用我的服务器开服, 就会自动在 launcher 上显示")。
+    ///
+    /// 登记处默认是 <see cref="ServerAnnouncer.DefaultRegistry"/>, 环境变量 <c>DIE_REGISTRY</c> 可以换,
+    /// 设成 <c>off</c> 就完全不参与。公网地址就是登记处地址的那台 (或者设了 <c>DIE_REGISTRY_SERVE=1</c>)
+    /// 自己兼做登记处; 其余的定时去报到 —— server-info.txt 里写了 <c>listed=no</c> 的除外。
+    /// </summary>
+    private static IDisposable StartServerListing(StatusServer status, int statusPort, string publicHost,
+                                                  ServerInfo info)
+    {
+        string registry = Environment.GetEnvironmentVariable("DIE_REGISTRY");
+        registry = string.IsNullOrWhiteSpace(registry) ? ServerAnnouncer.DefaultRegistry : registry.Trim();
+
+        if (statusPort <= 0 || registry.Equals("off", StringComparison.OrdinalIgnoreCase))
+        {
+            Log.Information("服务器列表: 不参与 (状态接口关着或 DIE_REGISTRY=off)");
+            return null;
+        }
+
+        bool serve = string.Equals(publicHost, registry, StringComparison.OrdinalIgnoreCase)
+                     || Environment.GetEnvironmentVariable("DIE_REGISTRY_SERVE") == "1";
+
+        if (serve)
+        {
+            ServerRegistry list = new ServerRegistry(() =>
+            {
+                StatusServer.Snapshot now = status.CurrentSnapshot();
+                return new ServerRegistry.Entry(publicHost ?? registry, statusPort, now.Name, now.Location,
+                    now.Location, now.Online, now.InMatch, now.Matches, now.Version, DateTime.UtcNow);
+            });
+            status.Registry = list;
+            _ = list.LocateSelfAsync(publicHost);
+            Log.Information("服务器列表: 本机兼做登记处 (别的服务器来这里报到, 登陆器从这里拿列表)");
+            return list;
+        }
+
+        if (!info.Listed)
+        {
+            Log.Information("服务器列表: server-info.txt 写了 listed=no, 不去登记处报到");
+            return null;
+        }
+
+        ServerAnnouncer announcer = new ServerAnnouncer(registry, StatusServer.DefaultPort, statusPort);
+        announcer.Start();
+        Log.Information("服务器列表: 每 {Seconds} 秒去登记处 {Registry} 报到 (名字 \"{Name}\", 位置 \"{Location}\")",
+            ServerAnnouncer.Interval.TotalSeconds, registry, info.Name, info.Location);
+        return announcer;
+    }
+
     /// <summary>状态接口每次被问到时现算的那几个数。</summary>
-    private static StatusServer.Snapshot StatusOf(RequestServer server, MatchHostRegistry hosts, string version)
+    private static StatusServer.Snapshot StatusOf(RequestServer server, MatchHostRegistry hosts, string version,
+                                                  ServerInfo info)
     {
         int matches = 0;
         int inMatch = 0;
@@ -181,7 +240,8 @@ internal static class Program
             inMatch += host.Roster.Count;
         }
 
-        return new StatusServer.Snapshot(server.OnlineCount, inMatch, matches, hosts.PortCount, version);
+        return new StatusServer.Snapshot(server.OnlineCount, inMatch, matches, hosts.PortCount, version,
+            info.Name, info.Location);
     }
 
     /// <summary>--import-accounts 的实现: 打印每个账号搬了什么, 返回进程退出码。</summary>

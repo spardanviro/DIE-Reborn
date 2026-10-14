@@ -21,6 +21,9 @@ logs/
 # 开服机器的公网地址 —— 每台机器不一样, 也不该进仓库。格式见 MatchHostAddress.PublicHostFile。
 public-host.txt
 
+# 服务器在登陆器列表里的名字 / 位置 —— 同上, 每台机器自己填。模板在 tools\server-pack\server-info.txt。
+/server-info.txt
+
 # 离局惩罚免罚名单 —— 含 Steam ID, 每台机器自己配。格式见 LeavePunishmentStore.ExemptFile。
 leave-punish-exempt.txt
 

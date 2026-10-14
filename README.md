@@ -126,7 +126,7 @@ Use the launcher from <https://github.com/spardanviro/DIElauncher> (version 1.1.
    ```
 3. Run the launcher. The server card should say **Online**. Press **Install patch**, then **Play**.
 
-The launcher writes that address into the game's `ip.cfg` every time you press Play, so the game connects to your server rather than the one the patch points at by default. Steam must be running and signed in.
+Your local server appears at the bottom of the launcher's server list and is selected. (A server on a private address is never put on the shared list, because nobody else could reach it — `launcher.json` is how you add it for yourself.) The launcher writes the selected server's address into the game's `ip.cfg` every time you press Play. Steam must be running and signed in.
 
 To have a second PC on your home network join, use the LAN address of the server PC (for example `192.168.1.20`) instead of `127.0.0.1`, and allow the ports from step 5.3 through Windows Firewall on the server PC.
 
@@ -160,7 +160,7 @@ Because the package contains files from the game and from Steam, keep it for you
 |---|---|---|
 | TCP | 1555 | Login, menus, inventory, shop |
 | TCP | 2555 | Matchmaking |
-| TCP | 8555 | Launcher status and patch mirror (read-only) |
+| TCP | 8555 | Launcher: server list, status and patch mirror (read-only) |
 | UDP | 50000–50099 | Matches, one port each |
 
 Open them in two places:
@@ -170,23 +170,41 @@ Open them in two places:
 
 If the host is behind a home router instead, forward the same ports to it.
 
-**5.4 Start it**
+**5.4 Name your server**
+
+Open `server-info.txt` in `DIE_Server` and fill in what players will see in the launcher's server list:
+
+```
+name=Zombie Island EU
+location=Germany · Frankfurt
+listed=yes
+```
+
+Leave `location` empty and it is looked up from your IP address. Leave `name` empty and the list shows your IP. To keep the file across rebuilds, put your copy in the repository root instead; packaging picks it up from there.
+
+**5.5 Start it**
 
 Copy the `DIE_Server` folder to the host (a path without non-ASCII characters is safest, for example `C:\DIE_Server`) and double-click `启动服务器.cmd` ("start the server"). You should see the same lines as in step 3, plus one showing the public address.
 
 From any other computer, open `http://<your address>:8555/status`. If it answers, players can reach you.
 
+About a minute after starting, the log should say the server is registered (`已在登记处登记`). From then on it appears in every player's launcher. If the log says registration failed (`登记没成功`), the reason follows on the same line — almost always port 8555 not being reachable from the internet.
+
 Closing the window stops the server. If you connect by Remote Desktop, *disconnect* rather than *sign out* — signing out closes the server with your session.
 
 ### 6. Let players in
 
-Send players two things: the launcher link, **<https://github.com/spardanviro/DIElauncher>**, and a `launcher.json` containing your address:
+There is nothing to send. Every server announces itself to a shared registry once a minute, and the launcher shows all of them in its **Servers** list with name, location, ping and player count. Players install the launcher from **<https://github.com/spardanviro/DIElauncher>**, click your server in the list, and press **Play**.
+
+The registry is the DIE Reborn server itself. It only lists servers it can connect back to on port 8555, so a server that is listed is one players can actually reach. A server that stops announcing drops off the list after three minutes.
+
+**Unlisted servers.** Set `listed=no` in `server-info.txt` and the server does not announce itself. Players then need a `launcher.json` next to `DIE-Launcher.exe`:
 
 ```json
 { "serverHost": "203.0.113.10" }
 ```
 
-They put `launcher.json` in the same folder as `DIE-Launcher.exe`, run the launcher, press **Install patch**, then **Play**. The launcher page has the full player-side walkthrough.
+The launcher page has the full player-side walkthrough.
 
 Each player's identity is their Steam account, verified through Steam; there is nothing to register and no passwords. An account is created on your server the first time a player logs in.
 
@@ -199,6 +217,7 @@ Each player's identity is their Steam account, verified through Steam; there is 
 | `data\die_reborn.db` | Every account: progress, inventory, currency. **Backing this file up backs up everything.** |
 | `logs\` | One log file per day |
 | `public-host.txt` | The public address; edit it and restart if the address changes |
+| `server-info.txt` | Name, location and whether the server is listed (step 5.4) |
 | `leave-punish-exempt.txt` | Optional. One SteamID64 per line: accounts that are not penalised for leaving a match (useful for testing) |
 | `patch\` | Optional. A copy of the launcher's client patch, served on port 8555 for players who cannot reach GitHub |
 
@@ -219,7 +238,9 @@ Set these as environment variables before starting the server.
 |---|---|
 | `DIE_GAME_ROOT` | Where to read maps and data from. Default: the `gamedata` folder beside the server, then the Steam install of the game. |
 | `DIE_PUBLIC_HOST` | The public address; overrides `public-host.txt`. |
-| `DIE_STATUS_PORT` | Port of the status endpoint. `0` turns it off. Default `8555`. |
+| `DIE_STATUS_PORT` | Port of the status endpoint. `0` turns it off (and the server cannot be listed). Default `8555`. |
+| `DIE_REGISTRY` | Address of the server-list registry. `off` = do not take part at all. Default: the DIE Reborn server. |
+| `DIE_REGISTRY_SERVE=1` | Act as a registry yourself (for a separate community with its own launcher setting `registry`). A server whose public address equals the registry address does this automatically. |
 | `DIE_STEAM_AUTH=trust` | **Development only.** Skips Steam verification: anyone can claim to be any Steam account. Never use it on a server others can reach. |
 
 The login port can be given as the first command-line argument (default `1555`). Clients look for `1555` and `2555` unless their `ip.cfg` says otherwise, so changing them means changing every client too.
@@ -234,6 +255,7 @@ The login port can be given as the first command-line argument (default `1555`).
 | Server exits at once with a `steam_api64` error | Step 2.4 was skipped, or the DLL does not match the `Steamworks.NET.dll` version. |
 | No "signed in to Steam" line | The host cannot reach Steam. Outbound traffic must be allowed. |
 | Launcher says **Offline** | Port 8555 is closed somewhere (provider firewall or Windows Firewall), or the server is not running. |
+| Server does not appear in the list | Check the log line after `服务器列表`. Usually port 8555 is closed, `listed=no` is set, or `public-host.txt` is a private address. It can take a minute to appear. |
 | Launcher says Online, but the game cannot log in | TCP 1555 is closed, or the player's `launcher.json` has the wrong address. |
 | Players log in but matches never start, or everyone times out on loading | UDP 50000–50099 is closed, or `public-host.txt` holds a private address. |
 | The game shows a login error straight away | Steam is not running on the player's PC, or the game was not started through Steam. |
