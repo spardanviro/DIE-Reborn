@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    ConductorCrafting.dll 的反编译源码 (未混淆, 纯 BCL, 无 Unity 依赖)。
+    提供 MessageSerialization 需要的全部数据类型:
+      AccountsData / CurrencyCollection / Stackable / Unique / Gadget /
+      DisabledFeaturesData / DLCPackage / Features / CharacterEnum /
+      Languages / MapIndex / ReportType / StoryMapData / RewardSetupData ...
+
+    同样以 glob 方式引用外部反编译树, 不在本目录下留副本。
+  -->
+  <PropertyGroup>
+    <RootNamespace>ConductorCrafting</RootNamespace>
+    <NoWarn>$(NoWarn);CS0108;CS0114;CS0169;CS0219;CS0414;CS0618;CS0649;CS1591;CS0162;CS0067;CS0660;CS0661;CS0693;CS3021;SYSLIB0011;SYSLIB0003;CS0659;CS9113;SYSLIB0014;CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stunlock.Core\Stunlock.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="$(ConductorCraftingSrc)**\*.cs" LinkBase="Generated" />
+    <Compile Remove="$(ConductorCraftingSrc)Properties\**\*.cs" />
+
+    <!-- 以下由 _Fixups\ 下的同名副本取代 (CS0104 Tuple<,> 歧义), 原因见各文件顶部注释 -->
+    <Compile Remove="$(ConductorCraftingSrc)ConductorCrafting\CraftingIO.cs" />
+    <Compile Remove="$(ConductorCraftingSrc)ConductorCrafting\ShopDocument.cs" />
+  </ItemGroup>
+
+</Project>

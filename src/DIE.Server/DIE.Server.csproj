@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>DIE.Server</AssemblyName>
+    <RootNamespace>DIE.Server</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0" />
+    <PackageReference Include="Serilog" Version="4.1.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Schema.sql 随程序集输出, 启动时读取执行。用 Include 而非 Update: 不依赖默认 glob 是否收录 -->
+    <None Include="Data\Schema.sql" CopyToOutputDirectory="PreserveNewest" />
+    <!-- 从 resources.assets 提取的物品图鉴, 服务端造初始装备要用 (tools\extract_crafting_data.py) -->
+    <None Include="..\..\data\GameCraftingData.xml" Link="data\GameCraftingData.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 玩家身份由 Steam 核验: 服务端以匿名游戏服务器登录 Steam, 验玩家的会话票据。
+         见 Steam\SteamTicketVerifier.cs 和 lib\steamworks\README.md。
+         steam_appid.txt 告诉 steam_api 这是哪个游戏 (222900 = Dead Island: Epidemic)。 -->
+    <Reference Include="Steamworks.NET" HintPath="..\..\lib\steamworks\Steamworks.NET.dll" />
+    <None Include="..\..\lib\steamworks\steam_api64.dll" Link="steam_api64.dll" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="steam_appid.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DIE.Protocol\DIE.Protocol.csproj" />
+    <ProjectReference Include="..\DIE.Lidgren\DIE.Lidgren.csproj" />
+    <!-- 游戏自带的模拟层。战斗服的序列化必须走它自己的 Serialize/Deserialize,
+         手写编解码器对不上线格式的风险太高 (Phase 1 的 ushort 定长坑就是这么踩的)。 -->
+    <ProjectReference Include="..\DIE.GameLogic\DIE.GameLogic.csproj" />
+  </ItemGroup>
+</Project>

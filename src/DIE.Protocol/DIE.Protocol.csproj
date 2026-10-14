@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    GameProtocol —— Request/Account 服务器 (TCP 1555) 的协议层。
+
+    源码取自 GAME 树 (Dead Island Epidemic_Data_SourceCode\GameProtocol\), 而非 CRIB 树:
+      - GAME 树含完全去混淆的 MessageSerialization.cs (4310 行, 双向), CRIB 树根本没有这个文件
+      - GAME 树的 MessageCallbacks.cs 引用干净的 StunTCP.Request<T>, CRIB 树引用的是混淆符号
+      - GAME 树另有 9 个 CRIB 缺失的类型 (LoginQueuePosUpdate / MaintenanceModeMessage / ...)
+
+    注意: 不引入 CRIB 树的 GameLink.cs —— 那是客户端的发送端, 不是服务端要的东西。
+
+    Hand\ 下是服务端缺失部分的手写补充 (原厂只发不收的消息没有 Serialize)。
+  -->
+  <PropertyGroup>
+    <RootNamespace>GameProtocol</RootNamespace>
+    <NoWarn>$(NoWarn);CS0108;CS0114;CS0169;CS0219;CS0414;CS0618;CS0649;CS1591;CS0162;CS0067;CS0660;CS0661;CS0693;CS3021</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Stunlock.Core\Stunlock.Core.csproj" />
+    <ProjectReference Include="..\Stunlock.ConductorData\Stunlock.ConductorData.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="$(GameProtocolSrc)**\*.cs" LinkBase="Generated" />
+    <!-- 以下由 _Fixups\ 下的同名副本取代, 原因见各文件顶部注释 -->
+    <Compile Remove="$(GameProtocolSrc)GameLink.cs" />   <!-- CS1525 默认参数反编译产物 -->
+    <Compile Remove="$(GameProtocolSrc)MailData.cs" />   <!-- CS0216 缺失 operator != -->
+  </ItemGroup>
+
+</Project>

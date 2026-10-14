@@ -1,0 +1,18 @@
+# 手工维护的排除清单 —— 服务端明确不需要、且编不过的文件。
+#
+# 路径相对于 GAME 反编译树根, 用正斜杠。
+#
+# **注意**: 这个清单必须手工判断后再加, 不能靠"编译不过就删"自动生成。
+# 试过那种做法 (tools\prune_gamelogic.sh, 已删除): 它按能否编译迭代剔除,
+# 10 轮后把 GameManager / NetworkBase / Client / GameObjectBase 全删了 ——
+# 因为 GameManager 引用 IMusicSystem, 后者被误过滤, 于是级联吃到核心。
+# 构建变绿但内容被掏空。"能编过"不是正确性判据。
+
+# 客户端的 GameManager。服务端要写的是它的兄弟 (GameManagerServer),
+# 这个只被 Unity 侧的启动代码用。它引用 _0023O9f (Steam 封装, 已按客户端专有过滤)。
+# (暂缓) ConductorGameLogic/GameManagerClient.cs —— 排除它会级联到 -t5/-APg.cs 等
+# 客户端控制台文件, 需要连同整个 Stunlock.Console* 簇一起处理, 见 PHASE_2_3_PLAN.md
+
+# (试过, 会级联) ConductorGameLogic/GameManagerClient.cs + -t5/-APg.cs
+# 排除这两个会让错误从 16 涨到 48。GameManagerClient 引用 _0023O9f (Steam 封装),
+# 正解是给 _0023O9f 写个最小桩放 _Fixups —— 遵循"只增不删", 零级联风险。

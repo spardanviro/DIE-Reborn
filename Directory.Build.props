@@ -1,0 +1,45 @@
+<Project>
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <EnableDefaultCompileItems>true</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <!--
+    反编译源码树的位置。这些树在 DIE_Reborn 之外, 由 ILSpy 从游戏的
+    Managed\*.dll 生成, 可随时重跑覆盖 —— 所以绝不在原地手改。
+    需要修的地方一律放到各项目的 _Fixups\ 目录下 (partial / 替换实现)。
+  -->
+  <PropertyGroup>
+    <!--
+      反编译工具: **ILSpy** (当前 10.1.1)。目录名用完整命名空间 (StunCore.Concurrency\),
+      混淆名转义成短横线前缀 (-0K\)。下面的路径按这个约定。
+
+      2026-07-25 曾试过 dnSpyEx, 结论是**不要用** —— 它内嵌的是老分支的 ILSpy 引擎,
+      产物在控制流层就是坏的 (catch 里 goto 回 try 内标签、foreach 迭代变量当指针、
+      goto 目标不存在), 而且恰好命中 StunMessage\Message.cs 和 StunTCP\TCPClient.cs
+      这两个最不该手工重构的文件; 另有 2 个文件直接吐出裸的编译器生成名
+      (<>c__DisplayClass14 / CS$<>8__locals1), 非法 C#。
+      ILSpy 10.1.1 的产物只需 6 个 _Fixups, 且全是类型/语法层的小问题。
+      它的目录结构也和 dnSpyEx 不同, 换工具会连带打断下面所有路径。
+    -->
+    <DecompileRoot>$(MSBuildThisFileDirectory)..\</DecompileRoot>
+    <StunCoreSrc>$(DecompileRoot)StunCore_SourceCode\</StunCoreSrc>
+    <ConductorCraftingSrc>$(DecompileRoot)ConductorCrafting_SourceCode\</ConductorCraftingSrc>
+    <GameSrc>$(DecompileRoot)Dead Island Epidemic_Data_SourceCode\</GameSrc>
+    <GameProtocolSrc>$(GameSrc)GameProtocol\</GameProtocolSrc>
+    <!--
+      CRIB 树 —— 匹配协议 (2555) 的唯一来源, GAME 树里没有 MatchmakingProtocol。
+      **不参与编译**, 只作为 DIE.Protocol\Match\ 那几个文件的誊抄原件。
+      原因见 MatchSerialization 的类注释: 这棵树是 ILMerge + 混淆过的, 自带一个与
+      StunCoreSrc 全限定名相同、底层 Message 类型却不同的 StunTCP, 无法与之共存。
+    -->
+    <CribSrc>$(DecompileRoot)Dead Island Epidemic - Crib_Data_SourceCode\</CribSrc>
+  </PropertyGroup>
+
+</Project>

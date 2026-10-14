@@ -1,0 +1,70 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    游戏模拟层 —— StunGameNetwork + ConductorGameLogic, 取自 GAME 树。
+
+    ## 为什么这能编译 (3A 之后最重要的一个发现)
+
+    这两个命名空间**几乎完全不依赖 Unity**: 269 个 ConductorGameLogic*.cs 里
+    只有 1 个 (ConductorGameLogic.View\UI_TransmissionAccumilator.cs) using UnityEngine,
+    而 StunGameNetwork 一个都没有。
+
+    合理 —— 原厂服务端本来就是无头 .NET 进程, 这套逻辑是双端共享的模拟层,
+    渲染和输入留在 Assembly-CSharp 的 Unity 部分。
+
+    结果是 Phase 3 需要的东西几乎全是现成的:
+      - GameManager (3206 行, 只有 1 个抽象成员 IsServer, 19 处 if (IsServer) 分支)
+      - GameObjectBase.Serialize(INetBuffer, IClient) 及 80 个子类 override
+      - Client (IClient 实现, ClientInfo 双向都有)
+      - NetworkBase / SynchronizableData / LidgrenNetBuffer
+
+    ## 排除项
+
+    ConductorGameLogic.View\ 是表现层 (UI/特效), 服务端不需要, 且唯一那个
+    Unity 依赖就在里面。整个目录排除。
+
+    ## 与 DIE.Lidgren 的关系
+
+    StunGameNetwork 直接引用 -iae (Lidgren) 的类型, 所以依赖 DIE.Lidgren。
+    两者都来自 GAME 树, 类型身份一致。
+  -->
+  <PropertyGroup>
+    <RootNamespace>ConductorGameLogic</RootNamespace>
+    <AssemblyName>DIE.GameLogic</AssemblyName>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NoWarn>$(NoWarn);CS0108;CS0114;CS0169;CS0219;CS0414;CS0618;CS0649;CS1591;CS0162;CS0067;CS0660;CS0661;CS0693;CS3021;CS0164;CS0659;CS9113;CS0728;SYSLIB0011;SYSLIB0003;CA2200;CA2022;CA1416;CS1522</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\DIE.Lidgren\DIE.Lidgren.csproj" />
+    <ProjectReference Include="..\DIE.Protocol\DIE.Protocol.csproj" />
+  </ItemGroup>
+
+  <!--
+    不直接 glob 反编译树, 先过一遍清洗脚本 —— ILSpy 对解不开的可选参数默认值会吐出
+    `= /*Read out of bounds.*/` (CS1525), 这 269 个文件里有 12 个中招, 共 51 处,
+    其中包括 GameManager.cs (3206 行)。做 _Fixups 副本不可持续, 详见脚本头部注释。
+
+    ItemGroup 必须放在 Target 内: 项目加载期镜像目录可能还不存在,
+    只有 Exec 跑完之后添加 Compile 项才拿得到文件。
+  -->
+  <PropertyGroup>
+    <GameLogicSubdirs>StunGameNetwork StunGameNetwork.Enums ConductorGameLogic ConductorGameLogic.Abilities ConductorGameLogic.Collision ConductorGameLogic.Crafting ConductorGameLogic.Entities ConductorGameLogic.Entities.Buffs ConductorGameLogic.Entities.Characters ConductorGameLogic.Entities.Destructibles ConductorGameLogic.Entities.GameModeObjects ConductorGameLogic.Entities.Spells ConductorGameLogic.GameModes ConductorGameLogic.Gameplay ConductorGameLogic.MapObjects ConductorGameLogic.MapObjects.Base ConductorGameLogic.Pathfinding ConductorGameLogic.StaticMapObjects ConductorGameLogic.Stats ConductorGameLogic.View ConductorGameLogic.Music FarseerPhysics.Common FarseerPhysics.Collision FarseerPhysics.Collision.Shapes -0k -6 -7P -B5d -EF -EK -Mk -NAe -Oq -Pdc -Sq -Vze -Ynb -aX -bd -bdc -cL -d2d -gBc -i3d -rjt -rye -t5 -x3d -z -2it -49q -4jb -6W -92d -95b -AO -C0b -EL -H0b -Idb -JY -LE -PH -PO -SL -Tdg -Tgb -Uab -Uxb -V2b -VX -X0b -Xeb -Xsb -Yib -arb -cgb -fZ -hPg -hcb -hjt -iI -iY -ihb -iib -j4d -kL -o5d -rV -s9q -xL -xdb -ybb -Qkt FMODMusic Stunlock.Console Stunlock.Console.GameEngineImplementation Stunlock.Console.Settings Stunlock.Console.UIHelper -0jt -Xjt InputMask.cs TransmissionEventID.cs VoiceClipID.cs</GameLogicSubdirs>
+    <GameLogicGenerated>$(MSBuildThisFileDirectory)obj\gamesrc\</GameLogicGenerated>
+  </PropertyGroup>
+
+  <Target Name="SanitizeGameLogicSources" BeforeTargets="BeforeCompile">
+    <Exec Command="python &quot;$(MSBuildThisFileDirectory)..\..\tools\sanitize_decompiled.py&quot; &quot;$(GameSrc.TrimEnd('\'))&quot; &quot;$(GameLogicGenerated.TrimEnd('\'))&quot; $(GameLogicSubdirs)"
+          StandardOutputImportance="normal" />
+    <ItemGroup>
+      <Compile Include="$(GameLogicGenerated)**\*.cs" LinkBase="Generated" />
+
+      <!-- 以下命名空间已由其它项目提供, 编进来会造成类型二义性 -->
+      <Compile Remove="$(GameLogicGenerated)-iae\**\*.cs" />              <!-- Lidgren -> DIE.Lidgren -->
+      <Compile Remove="$(GameLogicGenerated)Lidgren.Network\**\*.cs" />   <!-- 同上 -->
+      <Compile Remove="$(GameLogicGenerated)GameProtocol\**\*.cs" />      <!-- -> DIE.Protocol -->
+      <Compile Remove="$(GameLogicGenerated)Properties\**\*.cs" />        <!-- 反编译的 AssemblyInfo -->
+    </ItemGroup>
+  </Target>
+
+</Project>
