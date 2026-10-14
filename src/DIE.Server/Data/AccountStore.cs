@@ -1456,6 +1456,46 @@ public sealed class AccountStore
         insert.ExecuteNonQuery();
     }
 
+    /// <summary>账号的名字和 Steam ID (控制台的玩家列表用); 没有这个账号返回 null。</summary>
+    public (string Name, long? SteamId)? Identity(ulong userId)
+    {
+        using SqliteConnection conn = Open();
+        using SqliteCommand cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT profile_name, steam_id FROM accounts WHERE user_id = $id";
+        cmd.Parameters.AddWithValue("$id", (long)userId);
+
+        using SqliteDataReader r = cmd.ExecuteReader();
+        if (!r.Read())
+        {
+            return null;
+        }
+
+        return (r.GetString(0), r.IsDBNull(1) ? null : r.GetInt64(1));
+    }
+
+    /// <summary>
+    /// 把整个库在线备份到 <paramref name="destinationPath"/> (SQLite 的 backup API ——
+    /// 开着服、有人在写也能拿到一份一致的库, 不像直接拷文件可能拷到写了一半的)。
+    /// </summary>
+    public void BackupTo(string destinationPath)
+    {
+        string dir = Path.GetDirectoryName(Path.GetFullPath(destinationPath));
+        if (!string.IsNullOrEmpty(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        using SqliteConnection source = Open();
+        using SqliteConnection target = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = destinationPath,
+            Mode = SqliteOpenMode.ReadWriteCreate,
+            Pooling = false,
+        }.ToString());
+        target.Open();
+        source.BackupDatabase(target);
+    }
+
     public Account Load(ulong userId)
     {
         using SqliteConnection conn = Open();

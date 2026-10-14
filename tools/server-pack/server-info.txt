@@ -1,5 +1,6 @@
-# 这台服务器在登陆器"服务器"列表里怎么显示。改完重启服务端生效。
-# How this server appears in the launcher's server list. Restart the server after editing.
+# 这台服务器在登陆器"服务器"列表里怎么显示。在服务器控制台的「设置」里改立即生效; 直接改这个文件要重启服务端。
+# How this server appears in the launcher's server list. Edit it in the server console (applies at once),
+# or edit this file and restart the server.
 #
 # name      服务器名字 (40 字以内)。不填就显示 IP。
 #           Server name (up to 40 characters). Blank = show the IP address.

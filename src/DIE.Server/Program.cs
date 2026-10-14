@@ -31,6 +31,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         string baseDir = AppContext.BaseDirectory;
+        DateTime startedAtUtc = DateTime.UtcNow;
 
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
@@ -124,10 +125,12 @@ internal static class Program
             // DIE_STATUS_PORT=0 关掉, 别的数换端口。
             string serverVersion = File.Exists(versionFile) ? File.ReadAllText(versionFile).Trim() : string.Empty;
 
-            // 服主填的名字 / 位置 / 要不要上列表 —— 和 public-host.txt 一样两处都找
-            ServerInfo info = ServerInfo.Load(Directory.GetCurrentDirectory())
-                              ?? ServerInfo.Load(baseDir)
-                              ?? new ServerInfo();
+            // 服主填的名字 / 位置 / 要不要上列表 —— 和 public-host.txt 一样两处都找。
+            // 控制台改了会叫管理接口重读 (/admin/reload), 所以是个会被换掉的变量, 下面的 lambda 都现读它。
+            string infoDir = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), ServerInfo.FileName))
+                ? Directory.GetCurrentDirectory()
+                : baseDir;
+            ServerInfo info = ServerInfo.Load(infoDir) ?? new ServerInfo();
 
             using StatusServer status = new StatusServer(
                 () => StatusOf(server, matchHosts, serverVersion, info), baseDir);
@@ -141,11 +144,37 @@ internal static class Program
 
             using IDisposable listing = StartServerListing(status, statusPort, publicHost, info);
 
+            using ManualResetEventSlim quit = new ManualResetEventSlim(false);
+
+            // 服务器控制台的管理接口 (只对本机)。DIE_ADMIN_PORT=off 关掉, 给数字就用那个端口 (默认系统挑)。
+            ServerOverview overview = new ServerOverview(accounts.Identity);
+            ServerOverview.Fixed basics = new ServerOverview.Fixed(Environment.ProcessId, serverVersion,
+                startedAtUtc, publicHost, port, DefaultMatchServerPort, statusPort, matchHosts.FirstPort,
+                matchHosts.LastPort, matchHosts.PortCount);
+            using AdminServer admin = new AdminServer(
+                () => overview.Build(basics, info, server.Players(), matchServer.LinkCount,
+                    matchServer.QueueSnapshot(),
+                    matchHosts.Snapshot().Select(ServerOverview.MatchView.Of).ToList(), DateTime.UtcNow),
+                () => BackUpAccounts(accounts, baseDir),
+                () =>
+                {
+                    info = ServerInfo.Load(infoDir) ?? new ServerInfo();
+                    Log.Information("已重读 {File}: 名字 \"{Name}\", 位置 \"{Location}\"", ServerInfo.FileName,
+                        info.Name, info.Location);
+                    return info.Name;
+                },
+                quit.Set,
+                baseDir);
+            string adminPort = Environment.GetEnvironmentVariable("DIE_ADMIN_PORT");
+            if (!string.Equals(adminPort, "off", StringComparison.OrdinalIgnoreCase))
+            {
+                admin.Start(int.TryParse(adminPort, out int fixedPort) ? fixedPort : 0);
+            }
+
             LogReachableAddresses(publicHost, matchHosts);
 
             Log.Information("按 Ctrl+C 退出");
 
-            using ManualResetEventSlim quit = new ManualResetEventSlim(false);
             Console.CancelKeyPress += (_, e) =>
             {
                 e.Cancel = true;
@@ -242,6 +271,33 @@ internal static class Program
 
         return new StatusServer.Snapshot(server.OnlineCount, inMatch, matches, hosts.PortCount, version,
             info.Name, info.Location);
+    }
+
+    /// <summary>账号库备份放在 data\backups\ 下, 只留最新的这么多份。</summary>
+    private const int BackupsKept = 30;
+
+    /// <summary>在线备份账号库 (控制台的"备份"按钮 / 每日自动备份), 返回备份文件路径。</summary>
+    private static string BackUpAccounts(AccountStore accounts, string baseDir)
+    {
+        string dir = Path.Combine(baseDir, "data", "backups");
+        string file = Path.Combine(dir, $"die_reborn-{DateTime.Now:yyyyMMdd-HHmmss}.db");
+        accounts.BackupTo(file);
+        Log.Information("账号库已备份: {File}", file);
+
+        foreach (FileInfo old in new DirectoryInfo(dir).GetFiles("die_reborn-*.db")
+                     .OrderByDescending(f => f.Name, StringComparer.Ordinal)
+                     .Skip(BackupsKept))
+        {
+            try
+            {
+                old.Delete();
+            }
+            catch (IOException)
+            {
+            }
+        }
+
+        return file;
     }
 
     /// <summary>--import-accounts 的实现: 打印每个账号搬了什么, 返回进程退出码。</summary>

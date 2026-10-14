@@ -166,7 +166,7 @@ Because the package contains files from the game and from Steam, keep it for you
 Open them in two places:
 
 - **The cloud provider's firewall** (called a *security group* on most providers): add inbound rules for the four entries above, source `0.0.0.0/0`.
-- **Windows Firewall on the host**: right-click `开放防火墙.cmd` ("open the firewall") in `DIE_Server` → *Run as administrator*. It adds the same four rules.
+- **Windows Firewall on the host**: the server console (step 5.5) checks this the first time you open it and adds whatever is missing (click *Yes* on the administrator prompt). Without the console, right-click `开放防火墙.cmd` ("open the firewall") in `DIE_Server` → *Run as administrator*; it adds the same four rules.
 
 If the host is behind a home router instead, forward the same ports to it.
 
@@ -182,15 +182,32 @@ listed=yes
 
 Leave `location` empty and it is looked up from your IP address. Leave `name` empty and the list shows your IP. To keep the file across rebuilds, put your copy in the repository root instead; packaging picks it up from there.
 
+With the server console you can change the name and location on its *Settings* page instead; they take effect as soon as you save, without a restart.
+
 **5.5 Start it**
 
-Copy the `DIE_Server` folder to the host (a path without non-ASCII characters is safest, for example `C:\DIE_Server`) and double-click `启动服务器.cmd` ("start the server"). You should see the same lines as in step 3, plus one showing the public address.
+Copy the `DIE_Server` folder to the host (a path without non-ASCII characters is safest, for example `C:\DIE_Server`), double-click **`DIE-ServerConsole.exe` (the server console)** inside it and press **Start**.
+
+The console is a window for starting, stopping and watching the server (English and Chinese, switch at the top right):
+
+| Page | What it shows |
+|---|---|
+| **Overview** | How many people are in each of the three layers: lobby (TCP 1555, everyone online), matchmaking (TCP 2555: queued / readying / custom rooms) and game servers (UDP: players and matches in progress). CPU and memory of the server process and the machine, the load of the busiest match, 30-minute charts of players online and CPU, and a checklist. |
+| **Matches** | Each match's port, mode, map (and difficulty for Crossroads), players, state, age and load — how much of the last 30 seconds its logic thread was busy; above 80% players feel lag. |
+| **Players** | Everyone online: name, where they are (lobby / queue / which match), time online, Steam ID and IP. Right-click to copy a Steam ID or open the Steam profile. |
+| **Log** | The server log as it is written, filterable to warnings and errors, searchable. |
+| **Network** | Windows Firewall checked port by port with a one-click fix (it also removes the block rule Windows leaves when its first-run prompt is cancelled); an outside reachability test, where the registry connects back to your TCP ports and reports the public IP it sees; UPnP port forwarding for home routers; the exact cloud security group rules to add. |
+| **Settings** | Server name, location, listing and public address (with auto-detect); start the server when the console opens, restart it if it exits unexpectedly (up to 3 times in 10 minutes), and a daily account database backup (taken live without interrupting players, kept in `data\backups\`, last 30 kept). |
+
+The server runs in the background without a console window of its own. When you close the console you can leave the server running; the console reconnects to it the next time you open it, and it also picks up a server started with `启动服务器.cmd`. The console talks to the server only through a local-only admin interface protected by a one-time token; it opens no extra ports.
+
+You can also skip the console: double-click `启动服务器.cmd` ("start the server"). You should see the same lines as in step 3, plus one showing the public address.
 
 From any other computer, open `http://<your address>:8555/status`. If it answers, players can reach you.
 
 About a minute after starting, the log should say the server is registered (`已在登记处登记`). From then on it appears in every player's launcher. If the log says registration failed (`登记没成功`), the reason follows on the same line — almost always port 8555 not being reachable from the internet.
 
-Closing the window stops the server. If you connect by Remote Desktop, *disconnect* rather than *sign out* — signing out closes the server with your session.
+Press **Stop** in the console (or close the `启动服务器.cmd` window) to stop the server. If you connect by Remote Desktop, *disconnect* rather than *sign out* — signing out closes the server with your session.
 
 ### 6. Let players in
 
@@ -215,6 +232,8 @@ Each player's identity is their Steam account, verified through Steam; there is 
 | Path | What it is |
 |---|---|
 | `data\die_reborn.db` | Every account: progress, inventory, currency. **Backing this file up backs up everything.** |
+| `data\backups\` | The console's database backups (one a day, last 30 kept). To restore: stop the server, rename one to `die_reborn.db` and replace the one in `data\`. |
+| `DIE-ServerConsole.exe` | The server console (step 5.5) |
 | `logs\` | One log file per day |
 | `public-host.txt` | The public address; edit it and restart if the address changes |
 | `server-info.txt` | Name, location and whether the server is listed (step 5.4) |
@@ -224,7 +243,7 @@ Each player's identity is their Steam account, verified through Steam; there is 
 **Updating the server**
 
 1. `git pull` in the repository, then run `打包服务器.cmd` again.
-2. Stop the server. Copy `data\die_reborn.db` somewhere safe.
+2. Stop the server (press **Stop** in the console, then close it). Copy `data\die_reborn.db` somewhere safe.
 3. Overwrite the `DIE_Server` folder on the host with the new one. A normal package contains no database, so accounts are untouched.
 4. Start the server.
 
@@ -254,6 +273,7 @@ The login port can be given as the first command-line argument (default `1555`).
 | `GameCraftingData.xml` not found | Step 2.3 was skipped. |
 | Server exits at once with a `steam_api64` error | Step 2.4 was skipped, or the DLL does not match the `Steamworks.NET.dll` version. |
 | No "signed in to Steam" line | The host cannot reach Steam. Outbound traffic must be allowed. |
+| Not sure which port is closed | Open the console's *Network* page: the top half checks this machine's firewall, *Internet reachability* tests the TCP ports from outside. If everything is green and players still cannot connect, check UDP 50000–50099 (UDP cannot be tested from outside; compare with your security group / router). |
 | Launcher says **Offline** | Port 8555 is closed somewhere (provider firewall or Windows Firewall), or the server is not running. |
 | Server does not appear in the list | Check the log line after `服务器列表`. Usually port 8555 is closed, `listed=no` is set, or `public-host.txt` is a private address. It can take a minute to appear. |
 | Launcher says Online, but the game cannot log in | TCP 1555 is closed, or the player's `launcher.json` has the wrong address. |

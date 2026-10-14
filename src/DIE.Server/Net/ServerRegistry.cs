@@ -51,6 +51,7 @@ public sealed class ServerRegistry : IDisposable
     private readonly Func<Entry> _self;
     private readonly Func<string, CancellationToken, Task<string>> _fetch;
     private readonly Func<IPAddress, CancellationToken, Task<Place>> _locate;
+    private readonly Func<IPAddress, int, CancellationToken, Task<bool>> _connect;
     private readonly HttpClient _http;
 
     /// <summary>一台服务器在列表里的样子。</summary>
@@ -70,10 +71,13 @@ public sealed class ServerRegistry : IDisposable
     /// <param name="self">登记处自己那一项 (每次列表都现取, 人数是实时的)。</param>
     /// <param name="fetch">发 HTTP GET 拿文本。测试注入假的; 默认用不走代理的 HttpClient。</param>
     /// <param name="locate">按 IP 查地区。测试注入假的; 默认问 ip-api.com。</param>
+    /// <param name="connect">探测端口时连一下 TCP。测试注入假的。</param>
     public ServerRegistry(Func<Entry> self,
                           Func<string, CancellationToken, Task<string>> fetch = null,
-                          Func<IPAddress, CancellationToken, Task<Place>> locate = null)
+                          Func<IPAddress, CancellationToken, Task<Place>> locate = null,
+                          Func<IPAddress, int, CancellationToken, Task<bool>> connect = null)
     {
+        _connect = connect ?? TryConnect;
         _self = self;
         _http = new HttpClient(new SocketsHttpHandler { UseProxy = false, ConnectTimeout = VerifyTimeout })
         {
@@ -154,6 +158,64 @@ public sealed class ServerRegistry : IDisposable
         }
 
         return null;
+    }
+
+    /// <summary>探测时连哪几个 TCP 端口: 大厅、匹配, 再加上来问的那台的状态接口端口。</summary>
+    public static readonly int[] ProbedGamePorts = { 1555, 2555 };
+
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(4);
+
+    /// <summary>
+    /// 服务器控制台的"外网能不能连进来": 从登记处这边反过来连来问的那台的几个 TCP 端口。
+    ///
+    /// 只连**来问的那个 IP** 的固定几个端口 —— 不收别的地址、不收任意端口, 拿它扫不了别人。
+    /// 回答里顺带告诉它"你的公网 IP 是什么" (控制台拿来填 public-host.txt)。
+    /// UDP 的战斗服端口探不了 (没有握手), 控制台另外提示。
+    /// </summary>
+    public async Task<byte[]> ProbeJsonAsync(IPAddress from, int statusPort, CancellationToken cancel = default)
+    {
+        if (from.IsIPv4MappedToIPv6)
+        {
+            from = from.MapToIPv4();
+        }
+
+        List<int> ports = new List<int>(ProbedGamePorts);
+        if (statusPort > 0 && statusPort <= 65535 && !ports.Contains(statusPort))
+        {
+            ports.Add(statusPort);
+        }
+
+        bool[] open = await Task.WhenAll(ports.Select(async port =>
+        {
+            using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancel);
+            timeout.CancelAfter(ProbeTimeout);
+            try
+            {
+                return await _connect(from, port, timeout.Token);
+            }
+            catch (Exception ex) when (ex is System.Net.Sockets.SocketException or OperationCanceledException)
+            {
+                return false;
+            }
+        }));
+
+        return JsonSerializer.SerializeToUtf8Bytes(new Dictionary<string, object>
+        {
+            ["v"] = 1,
+            ["ip"] = from.ToString(),
+            ["ports"] = ports.Select((port, i) => new Dictionary<string, object>
+            {
+                ["port"] = port,
+                ["open"] = open[i],
+            }).ToList(),
+        });
+    }
+
+    private static async Task<bool> TryConnect(IPAddress ip, int port, CancellationToken cancel)
+    {
+        using System.Net.Sockets.TcpClient client = new System.Net.Sockets.TcpClient(ip.AddressFamily);
+        await client.ConnectAsync(ip, port, cancel);
+        return client.Connected;
     }
 
     /// <summary>当前列表: 登记处自己排第一, 其余按在线人数从多到少。过期的顺手清掉。</summary>

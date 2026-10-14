@@ -44,6 +44,15 @@ public sealed class FrameProfiler
 
     public int Frames => _frames;
 
+    /// <summary>上一个汇总窗口里泵线程忙的比例 (%) —— 控制台的"负载"。还没汇总过为 0。</summary>
+    public double LastBusyPercent { get; private set; }
+
+    /// <summary>上一个汇总窗口的平均每帧毫秒。</summary>
+    public double LastAverageMs { get; private set; }
+
+    /// <summary>上一个汇总窗口里最慢一帧的毫秒。</summary>
+    public double LastWorstMs { get; private set; }
+
     /// <summary>登记一个分段, 返回它的编号。同名只登记一次。</summary>
     public int Register(string name)
     {
@@ -127,6 +136,9 @@ public sealed class FrameProfiler
 
         StringBuilder text = new StringBuilder();
         double busy = Ms(_frameTotal) / (windowSeconds * 1000.0) * 100.0;
+        LastBusyPercent = busy;
+        LastAverageMs = Ms(_frameTotal) / _frames;
+        LastWorstMs = Ms(_frameWorst);
         text.Append($"{_frames} 帧 平均 {Ms(_frameTotal) / _frames:F2}ms 最慢 {Ms(_frameWorst):F1}ms "
                     + $"泵线程忙 {busy:F0}% 慢帧 {_slowFrames}");
         text.Append(" | ");

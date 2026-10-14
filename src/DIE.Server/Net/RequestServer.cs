@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using DIE.Server.Data;
 using DIE.Server.Handlers;
@@ -66,6 +67,33 @@ public sealed class RequestServer : IDisposable
 
             return users.Count;
         }
+    }
+
+    /// <summary>大厅里的一位玩家 (控制台的玩家列表用)。</summary>
+    public sealed record LobbyPlayer(ulong UserId, string Name, string Address, DateTime ConnectedAtUtc);
+
+    /// <summary>登录着的玩家, 每个账号一项 (同一个账号开两条连接取最早那条)。</summary>
+    public IReadOnlyList<LobbyPlayer> Players()
+    {
+        Dictionary<ulong, LobbyPlayer> players = new Dictionary<ulong, LobbyPlayer>();
+
+        foreach (RequestLink link in _connections.Keys)
+        {
+            if (link.UserId == 0)
+            {
+                continue;
+            }
+
+            if (players.TryGetValue(link.UserId, out LobbyPlayer known) && known.ConnectedAtUtc <= link.ConnectedAtUtc)
+            {
+                continue;
+            }
+
+            players[link.UserId] = new LobbyPlayer(link.UserId, link.ProfileName ?? string.Empty,
+                link.RemoteEndPoint?.Address?.ToString() ?? string.Empty, link.ConnectedAtUtc);
+        }
+
+        return players.Values.ToList();
     }
 
     public bool Start(IPAddress address, int port)

@@ -583,6 +583,12 @@ public sealed class LidgrenHost : IDisposable
     /// <summary>这个账号现在正连着这一局吗。</summary>
     public bool IsConnected(ulong userId) => userId != 0 && _connectedUsers.ContainsKey(userId);
 
+    /// <summary>此刻连着这一局的账号 (控制台的玩家列表用)。</summary>
+    public IReadOnlyCollection<ulong> ConnectedUserIds => _connectedUsers.Keys.ToArray();
+
+    /// <summary>这一局的战斗服是什么时候建的 (UTC)。</summary>
+    public DateTime CreatedAtUtc { get; } = DateTime.UtcNow;
+
     /// <summary>
     /// 这个账号能不能重连回这一局。
     ///

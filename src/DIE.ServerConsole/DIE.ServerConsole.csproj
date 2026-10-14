@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    服务器控制台: .NET Framework 4.8 的 WPF 程序, 和登陆器同一套做法 (见 launcher\DIE.Launcher)。
+    Win10 / Win11 / Windows Server 2016 以后都自带 4.8, 服务器包里多放一个几百 KB 的 exe 就行。
+
+    Core\ 里的文件不碰 WPF / COM / 进程, 测试项目 (net9) 按源码链接进去编译。
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>DIE-ServerConsole</AssemblyName>
+    <RootNamespace>DIE.ServerConsole</RootNamespace>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <InvariantGlobalization></InvariantGlobalization>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <Version>1.0.0</Version>
+    <Product>DIE Reborn 服务器控制台</Product>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <DebugType>none</DebugType>
+    <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- 要读 64 位服务端进程的路径 (Process.MainModule), 不能以 32 位跑 -->
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Runtime.Serialization" />
+  </ItemGroup>
+
+</Project>

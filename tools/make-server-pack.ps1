@@ -78,6 +78,16 @@ Write-Host "发布服务端 (Release, win-x64, 自包含) ..."
     -o $server --nologo -v quiet -p:NuGetAudit=false
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish 失败" }
 
+# ---- 1.5 服务器控制台 (net48 WPF, 一个 exe; 见 src\DIE.ServerConsole) ----
+Write-Host "编译服务器控制台 ..."
+$consoleBuild = Join-Path ([System.IO.Path]::GetTempPath()) "die-server-console-build"
+if (Test-Path $consoleBuild) { Remove-Item $consoleBuild -Recurse -Force }
+& dotnet build (Join-Path $repo 'src\DIE.ServerConsole') -c Release -o $consoleBuild --nologo -v quiet `
+    -p:NuGetAudit=false
+if ($LASTEXITCODE -ne 0) { throw "编译服务器控制台失败" }
+Copy-Item (Join-Path $consoleBuild 'DIE-ServerConsole.exe') $server
+Remove-Item $consoleBuild -Recurse -Force
+
 # ---- 2. 游戏数据 ----
 $data = Join-Path $server 'gamedata'
 New-Item -ItemType Directory -Force $data | Out-Null

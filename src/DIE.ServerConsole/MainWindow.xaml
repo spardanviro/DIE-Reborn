@@ -1,0 +1,516 @@
+<Window x:Class="DIE.ServerConsole.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:l="clr-namespace:DIE.ServerConsole"
+        Title="DIE Reborn" Width="1180" Height="760" MinWidth="980" MinHeight="620"
+        WindowStyle="None" ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource Ink}"
+        UseLayoutRounding="True" SnapsToDevicePixels="True"
+        TextOptions.TextFormattingMode="Display">
+
+    <!-- 自己画标题栏, 但保留系统的拖边缩放 -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="34" ResizeBorderThickness="6" GlassFrameThickness="0"
+                      CornerRadius="0" UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <Border x:Name="Frame" BorderBrush="{StaticResource PanelEdge}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34"/>
+                <RowDefinition Height="72"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="30"/>
+            </Grid.RowDefinitions>
+
+            <!-- 标题栏 -->
+            <Grid Grid.Row="0">
+                <TextBlock l:Loc.Key="chrome.title" Margin="16,0,0,0" VerticalAlignment="Center"
+                           Foreground="{StaticResource TextFaint}" FontSize="11"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="LanguageLink" Style="{StaticResource LinkButton}" VerticalAlignment="Center"
+                            Click="Language_Click"/>
+                    <Button Style="{StaticResource ChromeButton}" Content="—" Click="Minimize_Click"/>
+                    <Button x:Name="MaximizeButton" Style="{StaticResource ChromeButton}" Content="☐"
+                            Click="Maximize_Click"/>
+                    <Button Style="{StaticResource ChromeButton}" Content="✕" Click="Close_Click"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- 状态 + 开服停服 -->
+            <Border Grid.Row="1" BorderBrush="{StaticResource PanelEdge}" BorderThickness="0,0,0,1">
+                <DockPanel Margin="24,0">
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="StartButton" Style="{StaticResource ActionButton}" l:Loc.Key="action.start"
+                                Click="Start_Click"/>
+                        <Button x:Name="RestartButton" Style="{StaticResource ActionButton}"
+                                l:Loc.Key="action.restart" Click="Restart_Click"/>
+                        <Button x:Name="StopButton" Style="{StaticResource DangerButton}" l:Loc.Key="action.stop"
+                                Click="Stop_Click"/>
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Rectangle Width="5" Height="40" Fill="{StaticResource Hazard}" Margin="0,0,14,0"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock x:Name="HeaderName" FontFamily="{StaticResource Display}" FontSize="24"
+                                       TextTrimming="CharacterEllipsis" MaxWidth="460"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                <Ellipse x:Name="StateDot" Width="9" Height="9" Margin="0,0,7,0"
+                                         Fill="{StaticResource TextFaint}"/>
+                                <TextBlock x:Name="StateText" FontWeight="Bold" FontSize="12"/>
+                                <TextBlock x:Name="StateDetail" Margin="12,0,0,0" FontSize="12"
+                                           Foreground="{StaticResource TextSoft}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="176"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- 左侧导航 -->
+                <Border BorderBrush="{StaticResource PanelEdge}" BorderThickness="0,0,1,0">
+                    <DockPanel Margin="0,12,0,0">
+                        <TextBlock x:Name="ConsoleVersion" DockPanel.Dock="Bottom" Margin="20,0,12,12"
+                                   FontSize="11" Foreground="{StaticResource TextFaint}"/>
+                        <StackPanel>
+                            <RadioButton x:Name="NavOverview" Style="{StaticResource NavItem}" GroupName="Nav"
+                                         l:Loc.Key="nav.overview" IsChecked="True" Checked="Nav_Checked"/>
+                            <RadioButton x:Name="NavMatches" Style="{StaticResource NavItem}" GroupName="Nav"
+                                         l:Loc.Key="nav.matches" Checked="Nav_Checked"/>
+                            <RadioButton x:Name="NavPlayers" Style="{StaticResource NavItem}" GroupName="Nav"
+                                         l:Loc.Key="nav.players" Checked="Nav_Checked"/>
+                            <RadioButton x:Name="NavLog" Style="{StaticResource NavItem}" GroupName="Nav"
+                                         l:Loc.Key="nav.log" Checked="Nav_Checked"/>
+                            <RadioButton x:Name="NavNetwork" Style="{StaticResource NavItem}" GroupName="Nav"
+                                         l:Loc.Key="nav.network" Checked="Nav_Checked"/>
+                            <RadioButton x:Name="NavSettings" Style="{StaticResource NavItem}" GroupName="Nav"
+                                         l:Loc.Key="nav.settings" Checked="Nav_Checked"/>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <Grid Grid.Column="1">
+
+                    <!-- ================= 概览 ================= -->
+                    <ScrollViewer x:Name="PageOverview" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="22,18,22,22">
+                            <UniformGrid Columns="3">
+                                <Border Style="{StaticResource Card}" Margin="0,0,8,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="LobbyTitle" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock x:Name="LobbyNumber" Style="{StaticResource BigNumber}" Text="–"/>
+                                        <TextBlock x:Name="LobbyDetail" Style="{StaticResource Soft}" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource Card}" Margin="4,0,4,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="QueueTitle" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock x:Name="QueueNumber" Style="{StaticResource BigNumber}" Text="–"/>
+                                        <TextBlock x:Name="QueueDetail" Style="{StaticResource Soft}" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource Card}" Margin="8,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock x:Name="BattleTitle" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock x:Name="BattleNumber" Style="{StaticResource BigNumber}" Text="–"/>
+                                        <TextBlock x:Name="BattleDetail" Style="{StaticResource Soft}" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
+                            <UniformGrid Columns="3" Margin="0,12,0,0">
+                                <Border Style="{StaticResource Card}" Margin="0,0,8,0">
+                                    <StackPanel>
+                                        <TextBlock l:Loc.Key="load.process" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock x:Name="ProcessCpu" Style="{StaticResource BigNumber}" Text="–"/>
+                                        <TextBlock x:Name="ProcessDetail" Style="{StaticResource Soft}" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource Card}" Margin="4,0,4,0">
+                                    <StackPanel>
+                                        <TextBlock l:Loc.Key="load.machine" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock x:Name="MachineCpu" Style="{StaticResource BigNumber}" Text="–"/>
+                                        <TextBlock x:Name="MachineDetail" Style="{StaticResource Soft}" Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource Card}" Margin="8,0,0,0">
+                                    <StackPanel>
+                                        <TextBlock l:Loc.Key="load.battle" Style="{StaticResource SectionTitle}"/>
+                                        <TextBlock x:Name="BattleLoad" Style="{StaticResource BigNumber}" Text="–"/>
+                                        <TextBlock x:Name="BattleLoadDetail" Style="{StaticResource Soft}"
+                                                   Margin="0,6,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
+                            <UniformGrid Columns="2" Margin="0,12,0,0">
+                                <Border Style="{StaticResource Card}" Margin="0,0,6,0">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" x:Name="PlayersChartPeak" FontSize="11"
+                                                       Foreground="{StaticResource TextFaint}"/>
+                                            <TextBlock l:Loc.Key="chart.players" Style="{StaticResource SectionTitle}"/>
+                                        </DockPanel>
+                                        <l:Chart x:Name="PlayersChart" Height="120"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource Card}" Margin="6,0,0,0">
+                                    <StackPanel>
+                                        <DockPanel>
+                                            <TextBlock DockPanel.Dock="Right" x:Name="CpuChartPeak" FontSize="11"
+                                                       Foreground="{StaticResource TextFaint}"/>
+                                            <TextBlock l:Loc.Key="chart.cpu" Style="{StaticResource SectionTitle}"/>
+                                        </DockPanel>
+                                        <l:Chart x:Name="CpuChart" Height="120" Floor="10"/>
+                                    </StackPanel>
+                                </Border>
+                            </UniformGrid>
+
+                            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="checks.title" Style="{StaticResource SectionTitle}"/>
+                                    <ItemsControl x:Name="CheckList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,0,0,8">
+                                                    <Ellipse Width="9" Height="9" Margin="0,4,10,0"
+                                                             VerticalAlignment="Top" Fill="{Binding Brush}"/>
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- ================= 对局 ================= -->
+                    <DockPanel x:Name="PageMatches" Visibility="Collapsed" Margin="22,18,22,22">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBlock x:Name="MatchesSummary" DockPanel.Dock="Right" Style="{StaticResource Soft}"
+                                       VerticalAlignment="Bottom"/>
+                            <TextBlock l:Loc.Key="matches.title" Style="{StaticResource CardTitle}"/>
+                        </DockPanel>
+                        <TextBlock DockPanel.Dock="Bottom" l:Loc.Key="matches.note" Style="{StaticResource Soft}"
+                                   Margin="0,10,0,0" Foreground="{StaticResource TextFaint}"/>
+                        <Border Style="{StaticResource Card}" Padding="0">
+                            <DataGrid x:Name="MatchesGrid">
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn l:Loc.Key="col.port" Binding="{Binding Port}" Width="70"/>
+                                    <DataGridTextColumn l:Loc.Key="col.mode" Binding="{Binding Mode}" Width="110"/>
+                                    <DataGridTextColumn l:Loc.Key="col.map" Binding="{Binding Map}" Width="*"/>
+                                    <DataGridTextColumn l:Loc.Key="col.players" Binding="{Binding Players}" Width="70"/>
+                                    <DataGridTemplateColumn l:Loc.Key="col.state" Width="100">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="7" Height="7" Margin="0,0,7,0"
+                                                             Fill="{Binding StateBrush}"/>
+                                                    <TextBlock Text="{Binding State}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn l:Loc.Key="col.age" Binding="{Binding Age}" Width="90"/>
+                                    <DataGridTemplateColumn l:Loc.Key="col.load" Width="110">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Load}" Foreground="{Binding LoadBrush}"
+                                                           FontWeight="Bold"/>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn l:Loc.Key="col.frame" Binding="{Binding Frame}" Width="130"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                    </DockPanel>
+
+                    <!-- ================= 玩家 ================= -->
+                    <DockPanel x:Name="PagePlayers" Visibility="Collapsed" Margin="22,18,22,22">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <TextBox x:Name="PlayerSearch" DockPanel.Dock="Right" Width="220" VerticalAlignment="Center"
+                                     TextChanged="PlayerSearch_TextChanged"/>
+                            <TextBlock DockPanel.Dock="Right" l:Loc.Key="players.search" VerticalAlignment="Center"
+                                       Margin="0,0,8,0" Foreground="{StaticResource TextFaint}" FontSize="12"/>
+                            <TextBlock x:Name="PlayersTitle" Style="{StaticResource CardTitle}"
+                                       VerticalAlignment="Center"/>
+                        </DockPanel>
+                        <Border Style="{StaticResource Card}" Padding="0">
+                            <DataGrid x:Name="PlayersGrid">
+                                <DataGrid.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem x:Name="CopySteamIdMenu" Click="CopySteamId_Click"/>
+                                        <MenuItem x:Name="OpenProfileMenu" Click="OpenProfile_Click"/>
+                                    </ContextMenu>
+                                </DataGrid.ContextMenu>
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn l:Loc.Key="col.name" Binding="{Binding Name}" Width="*"/>
+                                    <DataGridTemplateColumn l:Loc.Key="col.where" Width="170">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <Ellipse Width="7" Height="7" Margin="0,0,7,0"
+                                                             Fill="{Binding WhereBrush}"/>
+                                                    <TextBlock Text="{Binding Where}"/>
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTextColumn l:Loc.Key="col.online" Binding="{Binding Online}" Width="100"/>
+                                    <DataGridTextColumn l:Loc.Key="col.steam" Binding="{Binding SteamId}" Width="170"/>
+                                    <DataGridTextColumn l:Loc.Key="col.address" Binding="{Binding Address}" Width="140"/>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+                    </DockPanel>
+
+                    <!-- ================= 日志 ================= -->
+                    <DockPanel x:Name="PageLog" Visibility="Collapsed" Margin="22,18,22,22">
+                        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                                <CheckBox x:Name="LogFollow" l:Loc.Key="log.follow" IsChecked="True"
+                                          VerticalAlignment="Center" Margin="0,0,14,0"/>
+                                <Button Style="{StaticResource GhostButton}" l:Loc.Key="log.openFolder"
+                                        Click="OpenLogFolder_Click"/>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <RadioButton x:Name="LogAll" Style="{StaticResource Chip}" GroupName="LogLevel"
+                                             l:Loc.Key="log.all" Checked="LogFilter_Changed"/>
+                                <RadioButton x:Name="LogInfo" Style="{StaticResource Chip}" GroupName="LogLevel"
+                                             l:Loc.Key="log.info" IsChecked="True" Checked="LogFilter_Changed"/>
+                                <RadioButton x:Name="LogProblems" Style="{StaticResource Chip}" GroupName="LogLevel"
+                                             l:Loc.Key="log.problems" Checked="LogFilter_Changed"/>
+                                <TextBlock l:Loc.Key="log.search" VerticalAlignment="Center" Margin="12,0,8,0"
+                                           Foreground="{StaticResource TextFaint}" FontSize="12"/>
+                                <TextBox x:Name="LogSearch" Width="200" VerticalAlignment="Center"
+                                         TextChanged="LogFilter_Changed"/>
+                            </StackPanel>
+                        </DockPanel>
+                        <TextBlock x:Name="LogFileText" DockPanel.Dock="Bottom" Margin="0,8,0,0" FontSize="11"
+                                   Foreground="{StaticResource TextFaint}" TextTrimming="CharacterEllipsis"/>
+                        <Border Style="{StaticResource Card}" Padding="0" Background="#0B0F0D">
+                            <ListBox x:Name="LogList" Background="Transparent" BorderThickness="0"
+                                     VirtualizingPanel.IsVirtualizing="True"
+                                     VirtualizingPanel.VirtualizationMode="Recycling"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     FontFamily="{StaticResource Mono}" FontSize="12">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="10,1"/>
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="Row" Background="Transparent"
+                                                            Padding="{TemplateBinding Padding}">
+                                                        <ContentPresenter/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="Row" Property="Background"
+                                                                    Value="{StaticResource RowSelected}"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="66"/>
+                                                <ColumnDefinition Width="38"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding Time}" FontFamily="{StaticResource Mono}"
+                                                       FontSize="12" Foreground="{StaticResource TextFaint}"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding Level}"
+                                                       FontFamily="{StaticResource Mono}" FontSize="12"
+                                                       Foreground="{Binding Brush}"/>
+                                            <TextBlock Grid.Column="2" Text="{Binding Text}" TextWrapping="Wrap"
+                                                       FontFamily="{StaticResource Mono}" FontSize="12"
+                                                       Foreground="{Binding Brush}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Border>
+                    </DockPanel>
+
+                    <!-- ================= 网络 / 端口 ================= -->
+                    <ScrollViewer x:Name="PageNetwork" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="22,18,22,22">
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="fw.title" Style="{StaticResource SectionTitle}"/>
+                                    <TextBlock l:Loc.Key="fw.explain" Style="{StaticResource Soft}" Margin="0,0,0,12"/>
+                                    <ItemsControl x:Name="FirewallList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,0,0,6">
+                                                    <Ellipse Width="9" Height="9" Margin="0,4,10,0"
+                                                             VerticalAlignment="Top" Fill="{Binding Brush}"/>
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button x:Name="FirewallFixButton" Style="{StaticResource GhostButton}"
+                                                l:Loc.Key="fw.fix" Click="FirewallFix_Click" Margin="0,0,8,0"/>
+                                        <Button Style="{StaticResource GhostButton}" l:Loc.Key="fw.recheck"
+                                                Click="FirewallCheck_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="probe.title" Style="{StaticResource SectionTitle}"/>
+                                    <TextBlock l:Loc.Key="probe.explain" Style="{StaticResource Soft}"
+                                               Margin="0,0,0,12"/>
+                                    <ItemsControl x:Name="ProbeList">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <DockPanel Margin="0,0,0,6">
+                                                    <Ellipse Width="9" Height="9" Margin="0,4,10,0"
+                                                             VerticalAlignment="Top" Fill="{Binding Brush}"/>
+                                                    <TextBlock Text="{Binding Text}" TextWrapping="Wrap"/>
+                                                </DockPanel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                        <Button x:Name="ProbeButton" Style="{StaticResource GhostButton}"
+                                                l:Loc.Key="probe.run" Click="Probe_Click" Margin="0,0,8,0"/>
+                                        <Button x:Name="UseProbeIpButton" Style="{StaticResource GhostButton}"
+                                                Click="UseProbeIp_Click" Visibility="Collapsed"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="upnp.title" Style="{StaticResource SectionTitle}"/>
+                                    <TextBlock l:Loc.Key="upnp.explain" Style="{StaticResource Soft}"
+                                               Margin="0,0,0,12"/>
+                                    <TextBlock x:Name="UpnpResult" Style="{StaticResource Soft}" Margin="0,0,0,10"
+                                               Visibility="Collapsed"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="UpnpButton" Style="{StaticResource GhostButton}"
+                                                l:Loc.Key="upnp.run" Click="Upnp_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="cloud.title" Style="{StaticResource SectionTitle}"/>
+                                    <TextBlock l:Loc.Key="cloud.explain" Style="{StaticResource Soft}"
+                                               Margin="0,0,0,10"/>
+                                    <TextBox x:Name="CloudRules" IsReadOnly="True" FontFamily="{StaticResource Mono}"
+                                             TextWrapping="Wrap"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- ================= 设置 ================= -->
+                    <ScrollViewer x:Name="PageSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="22,18,22,22" MaxWidth="760" HorizontalAlignment="Left">
+                            <Border Style="{StaticResource Card}">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="set.server" Style="{StaticResource SectionTitle}"/>
+
+                                    <TextBlock l:Loc.Key="set.name" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="NameBox" MaxLength="40"/>
+                                    <TextBlock l:Loc.Key="set.nameHint" Style="{StaticResource Soft}"
+                                               Foreground="{StaticResource TextFaint}" Margin="0,4,0,12"/>
+
+                                    <TextBlock l:Loc.Key="set.location" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox x:Name="LocationBox" MaxLength="40"/>
+                                    <TextBlock l:Loc.Key="set.locationHint" Style="{StaticResource Soft}"
+                                               Foreground="{StaticResource TextFaint}" Margin="0,4,0,12"/>
+
+                                    <CheckBox x:Name="ListedBox" l:Loc.Key="set.listed"/>
+
+                                    <TextBlock l:Loc.Key="set.host" Style="{StaticResource FieldLabel}"
+                                               Margin="0,6,0,2"/>
+                                    <DockPanel>
+                                        <Button DockPanel.Dock="Right" Style="{StaticResource GhostButton}"
+                                                l:Loc.Key="set.detectHost" Margin="8,0,0,0" Click="DetectHost_Click"/>
+                                        <TextBox x:Name="HostBox"/>
+                                    </DockPanel>
+                                    <TextBlock l:Loc.Key="set.hostHint" Style="{StaticResource Soft}"
+                                               Foreground="{StaticResource TextFaint}" Margin="0,4,0,14"/>
+
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Style="{StaticResource ActionButton}" Margin="0"
+                                                l:Loc.Key="set.save" Click="SaveServerSettings_Click"/>
+                                        <TextBlock x:Name="SaveNote" Style="{StaticResource Soft}"
+                                                   VerticalAlignment="Center" Margin="14,0,0,0" MaxWidth="520"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="set.console" Style="{StaticResource SectionTitle}"/>
+                                    <CheckBox x:Name="AutoStartBox" l:Loc.Key="set.autoStart"
+                                              Click="ConsoleOption_Click"/>
+                                    <CheckBox x:Name="AutoRestartBox" l:Loc.Key="set.autoRestart"
+                                              Click="ConsoleOption_Click"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <CheckBox x:Name="DailyBackupBox" l:Loc.Key="set.dailyBackup"
+                                                  Click="ConsoleOption_Click"/>
+                                        <TextBox x:Name="BackupHourBox" Width="44" Margin="10,-4,6,6"
+                                                 VerticalAlignment="Top" MaxLength="2"
+                                                 LostFocus="BackupHour_LostFocus"/>
+                                        <TextBlock l:Loc.Key="set.backupHour" Style="{StaticResource Soft}"
+                                                   VerticalAlignment="Top"/>
+                                    </StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                                        <Button x:Name="BackupButton" Style="{StaticResource GhostButton}"
+                                                l:Loc.Key="set.backupNow" Click="BackupNow_Click" Margin="0,0,8,0"/>
+                                        <Button Style="{StaticResource GhostButton}" l:Loc.Key="set.openBackups"
+                                                Click="OpenBackups_Click"/>
+                                    </StackPanel>
+                                    <TextBlock x:Name="BackupNote" Style="{StaticResource Soft}" Margin="0,8,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Card}" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock l:Loc.Key="set.folder" Style="{StaticResource SectionTitle}"/>
+                                    <TextBlock x:Name="ServerDirText" TextWrapping="Wrap" Margin="0,0,0,10"
+                                               Foreground="{StaticResource TextSoft}"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Style="{StaticResource GhostButton}" l:Loc.Key="set.changeFolder"
+                                                Click="ChangeFolder_Click" Margin="0,0,8,0"/>
+                                        <Button Style="{StaticResource GhostButton}" l:Loc.Key="set.openFolder"
+                                                Click="OpenFolder_Click"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+            </Grid>
+
+            <!-- 底栏: 最近一条消息 -->
+            <Border Grid.Row="3" BorderBrush="{StaticResource PanelEdge}" BorderThickness="0,1,0,0">
+                <TextBlock x:Name="StatusBar" Margin="24,0" VerticalAlignment="Center" FontSize="12"
+                           Foreground="{StaticResource TextSoft}" TextTrimming="CharacterEllipsis"/>
+            </Border>
+        </Grid>
+    </Border>
+</Window>

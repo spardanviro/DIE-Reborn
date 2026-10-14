@@ -377,6 +377,35 @@ public sealed class MatchmakingService
         }
     }
 
+    /// <summary>一个队列此刻的人数: 还在等凑人的、凑齐了正在点"准备"的。</summary>
+    public sealed record QueueState(QueueType Queue, int Waiting, int Readying);
+
+    /// <summary>匹配这一层此刻的样子 (控制台用)。</summary>
+    /// <param name="QueuedUsers">在排队 / 准备 / 自定义房间里的账号。</param>
+    public sealed record Snapshot(IReadOnlyList<QueueState> Queues, int Rooms, int RoomPlayers,
+                                  IReadOnlyCollection<ulong> QueuedUsers);
+
+    public Snapshot TakeSnapshot()
+    {
+        lock (_lock)
+        {
+            List<QueueState> queues = _parties.Values
+                .Where(p => p.Room == null)
+                .GroupBy(p => p.Queue)
+                .OrderBy(g => g.Key)
+                .Select(g => new QueueState(g.Key,
+                    g.Where(p => p.Match == null).Sum(p => p.Seats.Count),
+                    g.Where(p => p.Match != null).Sum(p => p.Seats.Count)))
+                .ToList();
+
+            int roomPlayers = _parties.Values.Where(p => p.Room != null).Sum(p => p.Seats.Count);
+            HashSet<ulong> users = _parties.Values.SelectMany(p => p.Seats).Select(seat => seat.UserId)
+                .Where(id => id != 0).ToHashSet();
+
+            return new Snapshot(queues, _rooms.Count(r => !r.Started), roomPlayers, users);
+        }
+    }
+
     // ==================================================================
     // 自定义房间
     // ==================================================================

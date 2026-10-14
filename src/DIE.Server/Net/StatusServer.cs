@@ -26,6 +26,7 @@ namespace DIE.Server.Net;
 ///
 ///     GET /servers           登陆器拿服务器列表
 ///     GET /announce?port=N   别的服务器来报到, 见 <see cref="ServerRegistry"/>
+///     GET /probe?status=N    服务器控制台问"外网连不连得进来", 见 <see cref="ServerRegistry.ProbeJsonAsync"/>
 ///
 /// 补丁包的正主在 GitHub Releases; 这里只是国内直连 GitHub 下不动时的兜底
 /// (玩家 2026-10-07 定)。登陆器不管从哪边下, 都拿校验值核对。
@@ -237,6 +238,14 @@ public sealed class StatusServer : IDisposable
             int port = int.TryParse(QueryValue(query, "port"), out int asked) ? asked : 0;
             string refused = await Registry.AnnounceAsync(from, port, DateTime.UtcNow, _stop.Token);
             await Reply(stream, 200, "text/plain; charset=utf-8", Encoding.UTF8.GetBytes(refused ?? "ok"));
+            return;
+        }
+
+        if (Registry != null && path == "/probe")
+        {
+            int port = int.TryParse(QueryValue(query, "status"), out int asked) ? asked : DefaultPort;
+            await Reply(stream, 200, "application/json; charset=utf-8",
+                await Registry.ProbeJsonAsync(from, port, _stop.Token));
             return;
         }
 

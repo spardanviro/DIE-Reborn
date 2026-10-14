@@ -61,6 +61,12 @@ public sealed class MatchServer : IDisposable
         _callbacks = BuildCallbacks();
     }
 
+    /// <summary>连着匹配服 (2555) 的连接数。</summary>
+    public int LinkCount => _connections.Count;
+
+    /// <summary>排队 / 准备 / 自定义房间里的人, 见 <see cref="MatchmakingService.TakeSnapshot"/>。</summary>
+    public MatchmakingService.Snapshot QueueSnapshot() => _queue.TakeSnapshot();
+
     public bool Start(IPAddress address, int port)
     {
         TCPClient.OnDataReceived += OnDataReceived;

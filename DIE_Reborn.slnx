@@ -4,6 +4,7 @@
     <Project Path="src/DIE.Lidgren/DIE.Lidgren.csproj" />
     <Project Path="src/DIE.Protocol/DIE.Protocol.csproj" />
     <Project Path="src/DIE.Server/DIE.Server.csproj" />
+    <Project Path="src/DIE.ServerConsole/DIE.ServerConsole.csproj" />
     <Project Path="src/Stunlock.ConductorData/Stunlock.ConductorData.csproj" />
     <Project Path="src/Stunlock.Core/Stunlock.Core.csproj" />
   </Folder>
